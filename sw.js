@@ -2,7 +2,7 @@
 // Game data itself is served from LocalStorage after first load, so it
 // doesn't need to live in the cache.
 
-const CACHE_NAME = 'nms-companion-v4';
+const CACHE_NAME = 'nms-companion-v5';
 
 const SHELL = [
   './',
@@ -17,6 +17,7 @@ const SHELL = [
   './js/views/favorites.js',
   './js/views/settings.js',
   './icons/icon.svg',
+  './data/icon-overrides.json',
 ];
 
 self.addEventListener('install', event => {
@@ -35,14 +36,24 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Network-first for jsDelivr (keeps data fresh when online).
-// Cache-first for everything else (the app shell).
+// Network-first for jsDelivr and for our own icon-overrides.json
+// (both should stay fresh). Cache-first for everything else (app shell).
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
+  const isOverrides = url.pathname.endsWith('/data/icon-overrides.json');
 
-  if (url.host === 'cdn.jsdelivr.net') {
+  if (url.host === 'cdn.jsdelivr.net' || isOverrides) {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
+      fetch(event.request)
+        .then(res => {
+          // Write fresh overrides into cache so offline still works.
+          if (isOverrides && res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match(event.request))
     );
     return;
   }
