@@ -1,6 +1,7 @@
 import { renderResources } from './views/resources.js';
 import { renderRecipes }   from './views/recipes.js';
 import { renderUpdates }   from './views/updates.js';
+import { renderUpdate }    from './views/update.js';
 import { renderFavorites } from './views/favorites.js';
 import { renderSettings }  from './views/settings.js';
 import { renderItem }      from './views/item.js';
@@ -20,35 +21,43 @@ const TABS = {
   settings:  { label: 'Settings',  render: renderSettings },
 };
 
-let currentRoute = { kind: 'tab', name: 'resources' };
+let currentRoute = { kind: 'tab', name: 'resources', params: {} };
 let lastTab = 'resources';
 
-export function navigateToItem(id) {
-  location.hash = `#item/${encodeURIComponent(id)}`;
-}
-
-// Parse the hash into a route. Supports #<tab> and #item/<id>.
 function parseRoute(hash) {
   const raw = (hash || '').replace(/^#/, '');
-  if (!raw) return { kind: 'tab', name: 'resources' };
+  if (!raw) return { kind: 'tab', name: 'resources', params: {} };
   if (raw.startsWith('item/')) {
     return { kind: 'item', id: decodeURIComponent(raw.slice(5)) };
   }
-  if (TABS[raw]) return { kind: 'tab', name: raw };
-  return { kind: 'tab', name: 'resources' };
+  if (raw.startsWith('update/')) {
+    return { kind: 'update', id: decodeURIComponent(raw.slice(7)) };
+  }
+  const [name, queryStr] = raw.split('?');
+  if (TABS[name]) {
+    const params = {};
+    if (queryStr) new URLSearchParams(queryStr).forEach((v, k) => { params[k] = v; });
+    return { kind: 'tab', name, params };
+  }
+  return { kind: 'tab', name: 'resources', params: {} };
 }
 
 function render() {
   const route = parseRoute(location.hash);
   currentRoute = route;
 
-  if (route.kind === 'item') {
+  // Every route change resets scroll to the top so users don't land
+  // mid-page when navigating from a scrolled list.
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+
+  if (route.kind === 'item' || route.kind === 'update') {
     topbar.classList.add('on-profile');
     tabbar.style.display = 'none';
     tabLabel.textContent = '';
     backBtn.hidden = false;
     viewRoot.innerHTML = '<div class="spinner" aria-label="Loading"></div>';
-    Promise.resolve(renderItem(viewRoot, route.id)).catch(err => {
+    const fn = route.kind === 'item' ? renderItem : renderUpdate;
+    Promise.resolve(fn(viewRoot, route.id)).catch(err => {
       console.error(err);
       viewRoot.innerHTML = `<div class="empty">Failed to load.<small>${err.message}</small></div>`;
     });
@@ -66,7 +75,7 @@ function render() {
     btn.classList.toggle('active', btn.dataset.tab === route.name);
   });
   viewRoot.innerHTML = '<div class="spinner" aria-label="Loading"></div>';
-  Promise.resolve(tab.render(viewRoot)).catch(err => {
+  Promise.resolve(tab.render(viewRoot, route.params)).catch(err => {
     console.error(err);
     viewRoot.innerHTML = `<div class="empty">Failed to load.<small>${err.message}</small></div>`;
   });

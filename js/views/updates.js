@@ -1,6 +1,5 @@
-// Updates tab — renders the Steam announcement gallery.
-// Data is pulled from data/updates.json, which is auto-refreshed by the
-// sync-updates GitHub Action.
+// Updates tab — gallery of Steam announcement cards. Each card links to a
+// full detail page (rendered by update.js) rather than expanding inline.
 
 import { getUpdates } from '../data.js';
 import { el } from './ui.js';
@@ -19,64 +18,43 @@ export async function renderUpdates(root) {
   }
 
   const list = el('div', { class: 'update-list' });
-  for (const upd of updates) {
-    list.appendChild(buildUpdateCard(upd));
-  }
+  for (const upd of updates) list.appendChild(buildUpdateCard(upd));
   root.appendChild(list);
 }
 
 function buildUpdateCard(upd) {
-  const expanded = { open: false };
-
-  const thumb = upd.thumbnail
-    ? el('img', { class: 'update-thumb', src: upd.thumbnail, alt: '', loading: 'lazy' })
-    : null;
-
-  const titleEl = el('h2', { class: 'update-title' }, upd.title);
-  const metaEl = el('div', { class: 'update-meta' }, [
-    el('span', { class: 'update-feed' }, upd.feedlabel || 'Announcement'),
-    el('span', { class: 'update-dot' }, '·'),
-    el('span', { class: 'update-date' }, formatRelativeDate(upd.date)),
-  ]);
-  const excerptEl = el('p', { class: 'update-excerpt' }, upd.excerpt || '');
-  const bodyEl = el('div', { class: 'update-body', html: upd.body || '' });
-  bodyEl.style.display = 'none';
-
-  const steamLink = el('a', {
-    class: 'update-link',
-    href: upd.url,
-    target: '_blank',
-    rel: 'noopener noreferrer',
-  }, 'Open on Steam →');
-
-  const toggle = el('button', { class: 'update-toggle' }, 'Read more');
-
-  const card = el('article', { class: 'update-card' }, [
-    thumb,
-    el('div', { class: 'update-body-wrap' }, [
-      titleEl,
-      metaEl,
-      excerptEl,
-      bodyEl,
-      el('div', { class: 'update-actions' }, [toggle, steamLink]),
-    ]),
-  ]);
-
-  toggle.addEventListener('click', () => {
-    expanded.open = !expanded.open;
-    bodyEl.style.display = expanded.open ? 'block' : 'none';
-    excerptEl.style.display = expanded.open ? 'none' : 'block';
-    toggle.textContent = expanded.open ? 'Show less' : 'Read more';
+  const card = el('a', {
+    class: 'update-card',
+    href: `#update/${encodeURIComponent(upd.id)}`,
   });
 
+  if (upd.thumbnail) {
+    const img = el('img', {
+      class: 'update-thumb',
+      src: upd.thumbnail,
+      alt: '',
+      loading: 'lazy',
+    });
+    img.addEventListener('error', () => img.remove());
+    card.appendChild(img);
+  }
+
+  card.appendChild(el('div', { class: 'update-body-wrap' }, [
+    el('h2', { class: 'update-title' }, upd.title),
+    el('div', { class: 'update-meta' }, [
+      el('span', { class: 'update-feed' }, upd.feedlabel || 'Announcement'),
+      el('span', { class: 'update-dot' }, '·'),
+      el('span', { class: 'update-date' }, formatRelativeDate(upd.date)),
+    ]),
+    el('p', { class: 'update-excerpt' }, upd.excerpt || ''),
+  ]));
   return card;
 }
 
 function formatRelativeDate(ms) {
   const then = new Date(ms);
   const now = new Date();
-  const diffMs = now - then;
-  const sec = Math.round(diffMs / 1000);
+  const sec = Math.round((now - then) / 1000);
   if (sec < 60) return 'just now';
   const min = Math.round(sec / 60);
   if (min < 60) return `${min} min ago`;

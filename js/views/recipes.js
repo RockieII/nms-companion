@@ -1,14 +1,43 @@
 import { getRefinerRecipes, getCraftingRecipes, getItemById } from '../data.js';
 import { buildRow, buildCategorySelect, uniqueGroups, debounce, el, norm, imgOrPlaceholder } from './ui.js';
 
-export async function renderRecipes(root) {
+export async function renderRecipes(root, params = {}) {
   root.innerHTML = '';
 
-  const state = { mode: 'refiner', query: '', group: '' };
+  const state = {
+    mode: params.mode === 'crafting' ? 'crafting' : 'refiner',
+    query: '',
+    group: '',
+    produces: params.produces || '',
+    uses: params.uses || '',
+  };
+
+  // Filter chip (shown when arriving with a ?produces= or ?uses= filter).
+  const filterChipHost = el('div');
+
+  async function renderFilterChip() {
+    filterChipHost.innerHTML = '';
+    if (!state.produces && !state.uses) return;
+    const targetId = state.produces || state.uses;
+    const target = await getItemById(targetId);
+    const label = state.produces
+      ? `Produces: ${target?.Name || targetId}`
+      : `Uses: ${target?.Name || targetId}`;
+    const clearBtn = el('button', { class: 'filter-chip-clear', 'aria-label': 'Clear filter', html: '×' });
+    clearBtn.addEventListener('click', () => {
+      state.produces = '';
+      state.uses = '';
+      location.hash = `#recipes${state.mode !== 'refiner' ? '?mode=' + state.mode : ''}`;
+    });
+    filterChipHost.appendChild(el('div', { class: 'filter-chip' }, [
+      el('span', {}, label),
+      clearBtn,
+    ]));
+  }
 
   const subtabs = el('div', { class: 'subtabs' }, [
-    el('button', { class: 'subtab active', 'data-sub': 'refiner' }, 'Refiner'),
-    el('button', { class: 'subtab',         'data-sub': 'crafting' }, 'Crafting'),
+    el('button', { class: 'subtab' + (state.mode === 'refiner' ? ' active' : ''), 'data-sub': 'refiner' }, 'Refiner'),
+    el('button', { class: 'subtab' + (state.mode === 'crafting' ? ' active' : ''), 'data-sub': 'crafting' }, 'Crafting'),
   ]);
   const searchInput = el('input', {
     type: 'search',
@@ -23,6 +52,7 @@ export async function renderRecipes(root) {
 
   root.appendChild(subtabs);
   root.appendChild(searchBar);
+  root.appendChild(filterChipHost);
   root.appendChild(filterHost);
   root.appendChild(listEl);
 
@@ -41,17 +71,24 @@ export async function renderRecipes(root) {
     btn.addEventListener('click', async () => {
       state.mode = btn.dataset.sub;
       state.group = '';
+      // Clear the produces/uses filter when switching modes (keeps UX simple).
+      if ((state.mode === 'refiner' && btn.dataset.sub !== 'refiner') ||
+          (state.mode === 'crafting' && btn.dataset.sub !== 'crafting')) {
+        state.produces = '';
+        state.uses = '';
+      }
       subtabs.querySelectorAll('.subtab').forEach(b =>
         b.classList.toggle('active', b === btn));
       await rebuildFilter();
+      await renderFilterChip();
       repaint();
     });
   });
 
   const repaint = debounce(async () => {
     listEl.innerHTML = '<div class="spinner"></div>';
-    if (state.mode === 'refiner') await paintRefiner(listEl, state.query, state.group);
-    else await paintCrafting(listEl, state.query, state.group);
+    if (state.mode === 'refiner') await paintRefiner(listEl, state);
+    else await paintCrafting(listEl, state);
   }, 140);
 
   searchInput.addEventListener('input', () => {
@@ -60,6 +97,7 @@ export async function renderRecipes(root) {
   });
 
   await rebuildFilter();
+  await renderFilterChip();
   repaint();
 }
 
@@ -73,7 +111,7 @@ async function refinerOutputGroups() {
   return [...set];
 }
 
-async function paintRefiner(listEl, query, group) {
+async function paintRefiner(listEl, state) {
   const recipes = await getRefinerRecipes();
 
   const enriched = [];
@@ -85,8 +123,10 @@ async function paintRefiner(listEl, query, group) {
   }
 
   let filtered = enriched;
-  if (group) filtered = filtered.filter(e => e.out?.Group === group);
-  if (query) filtered = filtered.filter(e => e.names.includes(query));
+  if (state.produces) filtered = filtered.filter(e => e.r.Output?.Id === state.produces);
+  if (state.uses)     filtered = filtered.filter(e => (e.r.Inputs || []).some(i => i.Id === state.uses));
+  if (state.group)    filtered = filtered.filter(e => e.out?.Group === state.group);
+  if (state.query)    filtered = filtered.filter(e => e.names.includes(state.query));
 
   listEl.innerHTML = '';
   if (filtered.length === 0) {
@@ -110,9 +150,7 @@ function buildRefinerRow({ r, out, ins }) {
     class: 'recipe-line tall',
     href: `#item/${encodeURIComponent(r.Id)}`,
   });
-  const chips = el('div', {
-    style: 'display:flex;align-items:center;flex-wrap:wrap;gap:6px;width:100%;',
-  });
+  const chips = el('div', { class: 'recipe-chips' });
   ins.forEach((item, i) => {
     if (i > 0) chips.appendChild(el('span', { class: 'recipe-arrow' }, '+'));
     chips.appendChild(chip(item, r.Inputs[i].Quantity, r.Inputs[i].Id));
@@ -130,17 +168,18 @@ function chip(item, qty, fallbackId) {
   const name = item?.Name || fallbackId;
   return el('span', { class: 'recipe-chip' }, [
     imgOrPlaceholder(item),
-    document.createTextNode(`${qty}× ${name}`),
+    el('span', { class: 'recipe-chip-text' }, `${qty}× ${name}`),
   ]);
 }
 
-async function paintCrafting(listEl, query, group) {
+async function paintCrafting(listEl, state) {
   const products = await getCraftingRecipes();
-  const craftable = products.filter(p => Array.isArray(p.RequiredItems) && p.RequiredItems.length > 0);
+  let filtered = products.filter(p => Array.isArray(p.RequiredItems) && p.RequiredItems.length > 0);
 
-  let filtered = craftable;
-  if (group) filtered = filtered.filter(p => p.Group === group);
-  if (query) filtered = await filterByIngredientOrName(filtered, query);
+  if (state.produces) filtered = filtered.filter(p => p.Id === state.produces);
+  if (state.uses)     filtered = filtered.filter(p => p.RequiredItems.some(r => r.Id === state.uses));
+  if (state.group)    filtered = filtered.filter(p => p.Group === state.group);
+  if (state.query)    filtered = await filterByIngredientOrName(filtered, state.query);
 
   listEl.innerHTML = '';
   if (filtered.length === 0) {
