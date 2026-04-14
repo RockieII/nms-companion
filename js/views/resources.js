@@ -1,5 +1,5 @@
 import { getResources } from '../data.js';
-import { buildRow, buildCategorySelect, uniqueGroups, openSheet, debounce, el, norm, imgOrPlaceholder } from './ui.js';
+import { buildRow, buildCategorySelect, uniqueGroups, debounce, el, norm } from './ui.js';
 
 export async function renderResources(root) {
   const resources = await getResources();
@@ -48,7 +48,6 @@ export async function renderResources(root) {
         item,
         kind: 'resource',
         subtitle: `${item.Group} · ${item.BaseValueUnits || 0} u`,
-        onOpen: () => openResourceSheet(item),
       }));
     }
     listEl.appendChild(frag);
@@ -65,35 +64,4 @@ export async function renderResources(root) {
 
   searchInput.addEventListener('input', filter);
   paint();
-}
-
-function openResourceSheet(item) {
-  openSheet(({ close }) => {
-    const wrap = document.createDocumentFragment();
-    wrap.appendChild(el('div', { class: 'sheet-head' }, [
-      imgOrPlaceholder(item, { class: 'sheet-icon' }),
-      el('div', {}, [
-        el('h2', { class: 'sheet-title' }, item.Name),
-        el('p',  { class: 'sheet-group' }, item.Group || ''),
-      ]),
-      el('button', { class: 'sheet-close', onclick: close, 'aria-label': 'Close', html: '×' }),
-    ]));
-
-    wrap.appendChild(el('div', { class: 'sheet-section' }, [
-      el('h3', {}, 'Description'),
-      el('div', { class: 'sheet-desc' }, item.Description || '—'),
-    ]));
-
-    wrap.appendChild(el('div', { class: 'sheet-section' }, [
-      el('h3', {}, 'Stats'),
-      el('div', { class: 'stat-grid' }, [
-        el('div', {}, [el('span', {}, 'Symbol: '), document.createTextNode(item.Abbrev || '—')]),
-        el('div', {}, [el('span', {}, 'Value: '),  document.createTextNode(`${item.BaseValueUnits || 0} u`)]),
-        el('div', {}, [el('span', {}, 'Stack: '),  document.createTextNode(`${item.MaxStackSize || '—'}`)]),
-        el('div', {}, [el('span', {}, 'ID: '),     document.createTextNode(item.Id)]),
-      ]),
-    ]));
-
-    return wrap;
-  });
 }

@@ -26,10 +26,9 @@ export async function renderFavorites(root) {
       if (!r) continue;
       const out = await getItemById(r.Output.Id);
       groups.refiner.appendChild(buildRow({
-        item: { Id: r.Id, Name: r.Operation || out?.Name || r.Id, CdnUrl: out?.CdnUrl, Group: 'Refiner recipe' },
+        item: { Id: r.Id, Name: r.Operation || out?.Name || r.Id, CdnUrl: out?.CdnUrl, Colour: out?.Colour, Group: 'Refiner recipe' },
         kind: 'refiner',
         subtitle: `→ ${r.Output.Quantity}× ${out?.Name || '?'}`,
-        onOpen: () => { location.hash = '#recipes'; },
       }));
     } else {
       const item = await getItemById(f.id);
@@ -38,23 +37,22 @@ export async function renderFavorites(root) {
         item,
         kind: f.type,
         subtitle: item.Group,
-        onOpen: () => {
-          location.hash = f.type === 'resource' ? '#resources' : '#recipes';
-        },
       }));
     }
   }
 
+  const HEADER_STYLE = 'margin:8px 4px;color:var(--accent);font-size:12px;text-transform:uppercase;letter-spacing:1px;';
+
   if (groups.resource.children.length) {
-    root.appendChild(el('h3', { style: 'margin:8px 4px;color:var(--accent);font-size:12px;text-transform:uppercase;letter-spacing:1px;' }, 'Resources'));
+    root.appendChild(el('h3', { style: HEADER_STYLE }, 'Resources'));
     root.appendChild(groups.resource);
   }
   if (groups.product.children.length) {
-    root.appendChild(el('h3', { style: 'margin:14px 4px 8px;color:var(--accent);font-size:12px;text-transform:uppercase;letter-spacing:1px;' }, 'Crafting'));
+    root.appendChild(el('h3', { style: HEADER_STYLE.replace('8px', '14px') }, 'Crafting'));
     root.appendChild(groups.product);
   }
   if (groups.refiner.children.length) {
-    root.appendChild(el('h3', { style: 'margin:14px 4px 8px;color:var(--accent);font-size:12px;text-transform:uppercase;letter-spacing:1px;' }, 'Refiner'));
+    root.appendChild(el('h3', { style: HEADER_STYLE.replace('8px', '14px') }, 'Refiner'));
     root.appendChild(groups.refiner);
   }
 }

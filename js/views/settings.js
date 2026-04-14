@@ -9,6 +9,7 @@ export async function renderSettings(root) {
   const resourcesCount = jsonCount('nms:resources:v2');
   const productsCount  = jsonCount('nms:products:v2');
   const refinerCount   = jsonCount('nms:refinery:v2');
+  const updatesCount   = jsonCount('nms:updates:v1');
 
   const refreshBtn = el('button', { class: 'btn' }, 'Refresh game data');
   refreshBtn.addEventListener('click', async () => {
@@ -31,6 +32,7 @@ export async function renderSettings(root) {
     el('div', { class: 'settings-row' }, [el('span', {}, 'Resources'), el('span', {}, String(resourcesCount))]),
     el('div', { class: 'settings-row' }, [el('span', {}, 'Crafting recipes'), el('span', {}, String(productsCount))]),
     el('div', { class: 'settings-row' }, [el('span', {}, 'Refiner recipes'),  el('span', {}, String(refinerCount))]),
+    el('div', { class: 'settings-row' }, [el('span', {}, 'Steam updates'),    el('span', {}, String(updatesCount))]),
     el('div', { class: 'settings-row' }, [el('span', {}, 'Last refreshed'),   stampEl]),
     el('div', { style: 'margin-top:12px;' }, [refreshBtn]),
   ]));
@@ -56,10 +58,11 @@ export async function renderSettings(root) {
 
   root.appendChild(el('div', { class: 'settings-section' }, [
     el('h2', {}, 'Credits'),
-    el('div', { class: 'sheet-desc', style: 'font-size:12px;' },
+    el('div', { style: 'font-size:12px; line-height:1.55; color:var(--text-dim);' },
       'Game data from the No Man\'s Sky community ' +
       '(bradhave94/nms on GitHub), served via jsDelivr. ' +
-      'Icons from cdn.nmsassistant.com. ' +
+      'Icons from cdn.nmsassistant.com + static.wikia.nocookie.net. ' +
+      'Updates pulled from the Steam community API. ' +
       'No Man\'s Sky © Hello Games. This app is fan-made and not affiliated.'),
   ]));
 }

@@ -14,6 +14,8 @@ const ENDPOINTS = {
   trade:       `${BASE}/Trade.json`,
 };
 
+const UPDATES_URL = './data/updates.json';
+
 const STORAGE = {
   resources:   'nms:resources:v2',
   products:    'nms:products:v2',
@@ -23,6 +25,7 @@ const STORAGE = {
   curiosities: 'nms:curiosities:v1',
   others:      'nms:others:v1',
   trade:       'nms:trade:v1',
+  updates:     'nms:updates:v1',
   stamp:       'nms:lastRefresh:v2',
   favorites:   'nms:favorites:v1',
 };
@@ -35,6 +38,8 @@ const RESOURCE_EXCLUDED_GROUPS = new Set(['Reward Item']);
 
 const inMemory = {};
 let idIndex = null;
+let recipesByInput = null;   // id -> [{type:'refiner'|'product', recipe}]
+let recipesByOutput = null;  // id -> [{type, recipe}]
 
 function loadFromStorage(key) {
   try {
@@ -122,6 +127,15 @@ export async function refresh() {
     }
   }
   idIndex = null;
+  recipesByInput = null;
+  recipesByOutput = null;
+  try {
+    const upd = await fetchJson(UPDATES_URL);
+    localStorage.setItem(STORAGE.updates, JSON.stringify(upd));
+    inMemory.updates = upd;
+  } catch (e) {
+    errors.push({ key: 'updates', message: e.message });
+  }
   const timestamp = new Date().toISOString();
   if (errors.length === 0) {
     localStorage.setItem(STORAGE.stamp, timestamp);
@@ -133,8 +147,8 @@ export function lastRefreshedAt() {
   return localStorage.getItem(STORAGE.stamp);
 }
 
-// Build a lookup from every known Id to its item, across all 7 data files.
-// Used to resolve Inputs/Outputs referenced by Id in recipes.
+// Build a lookup from every known Id to its item, across all 7 data files
+// AND the refinery recipes (ref*). Used by profile pages and recipe renderers.
 export async function getItemById(id) {
   if (!idIndex) {
     const lists = await Promise.all(LOOKUP_KEYS.map(k => ensure(k)));
@@ -145,8 +159,70 @@ export async function getItemById(id) {
         idIndex[item.Id] = { ...item, _kind: kind };
       }
     }
+    const refinery = await ensure('refinery');
+    for (const r of refinery) {
+      idIndex[r.Id] = { ...r, _kind: 'refiner' };
+    }
   }
   return idIndex[id] || null;
+}
+
+// Build reverse indexes so we can answer "what recipes use X?" and
+// "what recipes produce X?" on a profile page.
+async function ensureRecipeIndexes() {
+  if (recipesByInput && recipesByOutput) return;
+  const [refinery, products] = await Promise.all([
+    ensure('refinery'),
+    ensure('products'),
+  ]);
+  recipesByInput = {};
+  recipesByOutput = {};
+  for (const r of refinery) {
+    for (const inp of r.Inputs || []) {
+      (recipesByInput[inp.Id] ||= []).push({ type: 'refiner', recipe: r });
+    }
+    if (r.Output?.Id) {
+      (recipesByOutput[r.Output.Id] ||= []).push({ type: 'refiner', recipe: r });
+    }
+  }
+  for (const p of products) {
+    if (!Array.isArray(p.RequiredItems) || p.RequiredItems.length === 0) continue;
+    for (const ing of p.RequiredItems) {
+      (recipesByInput[ing.Id] ||= []).push({ type: 'product', recipe: p });
+    }
+    // A product "produces itself" — clicking a raw mat wouldn't match here,
+    // but clicking a product's Made-by shows its own crafting recipe.
+    (recipesByOutput[p.Id] ||= []).push({ type: 'product', recipe: p });
+  }
+}
+
+export async function getRecipesUsing(id) {
+  await ensureRecipeIndexes();
+  return recipesByInput[id] || [];
+}
+
+export async function getRecipesProducing(id) {
+  await ensureRecipeIndexes();
+  return recipesByOutput[id] || [];
+}
+
+// Steam updates — loaded from the static data/updates.json committed by
+// the sync-updates GitHub Action. Cache in LocalStorage for offline.
+export async function getUpdates() {
+  if (inMemory.updates) return inMemory.updates;
+  const cached = loadFromStorage(STORAGE.updates);
+  if (cached) {
+    inMemory.updates = cached;
+    return cached;
+  }
+  try {
+    const data = await fetchJson(UPDATES_URL);
+    localStorage.setItem(STORAGE.updates, JSON.stringify(data));
+    inMemory.updates = data;
+    return data;
+  } catch {
+    return [];
+  }
 }
 
 // Favorites — stored as [{ type, id }]. Not network-dependent.

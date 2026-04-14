@@ -21,8 +21,7 @@ export function el(tag, attrs = {}, children = []) {
 }
 
 // Build a per-item placeholder: colored hexagon tile with the item's first
-// letter. Used when the CDN icon 404s or is missing — so Basalt looks like
-// a grey "B" tile, Carbon like a red "C", etc.
+// letter. Used when the CDN icon 404s or is missing.
 function buildPlaceholder(item) {
   const hex = (item?.Colour && /^[0-9A-Fa-f]{6}$/.test(item.Colour)) ? item.Colour : 'ffcc33';
   const letter = (item?.Name || '?').trim().charAt(0).toUpperCase() || '?';
@@ -39,17 +38,12 @@ function isDark(hex) {
   const r = parseInt(hex.slice(0, 2), 16);
   const g = parseInt(hex.slice(2, 4), 16);
   const b = parseInt(hex.slice(4, 6), 16);
-  // Perceived luminance — below ~140 is dark, use white text.
   return (r * 299 + g * 587 + b * 114) / 1000 < 140;
 }
 
-// Render an <img> for an item. If item has no CdnUrl, or if the CDN 404s,
-// swap to a colored-initial placeholder derived from the item itself.
 export function imgOrPlaceholder(item, extraAttrs = {}) {
   const placeholder = buildPlaceholder(item);
   const src = item?.CdnUrl || placeholder;
-  // Attach onerror BEFORE src so the listener is wired when the browser
-  // resolves the resource (avoids a race on fast 404 responses).
   return el('img', {
     onerror: (e) => { if (e.target.src !== placeholder) e.target.src = placeholder; },
     src,
@@ -67,73 +61,45 @@ export function debounce(fn, ms = 150) {
   };
 }
 
-// Build a list row: icon | title/subtitle | star
-export function buildRow({ item, kind, subtitle, onOpen }) {
+// Build a list row rendered as a link to the item's profile page.
+// `kind` ('resource'|'product'|'refiner') controls the star's favorite namespace.
+// `linkId` overrides which id the row links to (defaults to item.Id).
+export function buildRow({ item, kind, subtitle, linkId }) {
   const starred = isFavorite(kind, item.Id);
-  const row = el('button', { class: 'row', type: 'button' }, [
+  const href = `#item/${encodeURIComponent(linkId || item.Id)}`;
+  const star = el('span', {
+    class: 'row-star' + (starred ? ' on' : ''),
+    'aria-label': starred ? 'Unfavorite' : 'Favorite',
+    html: starred ? '★' : '☆',
+  });
+  star.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const nowOn = toggleFavorite(kind, item.Id);
+    star.classList.toggle('on', nowOn);
+    star.innerHTML = nowOn ? '★' : '☆';
+    window.dispatchEvent(new CustomEvent('nms:favorites-changed'));
+  });
+  return el('a', { class: 'row', href }, [
     imgOrPlaceholder(item, { class: 'row-icon' }),
     el('div', { class: 'row-body' }, [
       el('div', { class: 'row-title' }, item.Name || item.Id),
       el('div', { class: 'row-sub' }, subtitle || item.Group || ''),
     ]),
-    el('span', {
-      class: 'row-star' + (starred ? ' on' : ''),
-      'aria-label': starred ? 'Unfavorite' : 'Favorite',
-      onclick: (ev) => {
-        ev.stopPropagation();
-        const nowOn = toggleFavorite(kind, item.Id);
-        ev.currentTarget.classList.toggle('on', nowOn);
-        ev.currentTarget.textContent = nowOn ? '★' : '☆';
-        window.dispatchEvent(new CustomEvent('nms:favorites-changed'));
-      },
-      html: starred ? '★' : '☆',
-    }),
+    star,
   ]);
-  row.addEventListener('click', () => onOpen && onOpen(item));
-  return row;
 }
 
-// Modal sheet. Returns a close() function.
-export function openSheet(buildContent) {
-  closeSheet();
-  const backdrop = el('div', { class: 'sheet-backdrop' });
-  const sheet = el('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true' });
-  sheet.appendChild(buildContent({ close }));
-  document.body.appendChild(backdrop);
-  document.body.appendChild(sheet);
-  requestAnimationFrame(() => {
-    backdrop.classList.add('open');
-    sheet.classList.add('open');
-  });
-  backdrop.addEventListener('click', close);
-
-  function close() {
-    backdrop.classList.remove('open');
-    sheet.classList.remove('open');
-    setTimeout(() => { backdrop.remove(); sheet.remove(); }, 200);
-  }
-  openSheet._close = close;
-  return close;
-}
-
-export function closeSheet() {
-  if (openSheet._close) { openSheet._close(); openSheet._close = null; }
-}
-
-// Normalize a string for fuzzy search.
 export function norm(s) {
   return (s || '').toString().toLowerCase();
 }
 
-// Extract unique Group values from a list of items, sorted alphabetically.
 export function uniqueGroups(items) {
   const set = new Set();
   for (const it of items) if (it && it.Group) set.add(it.Group);
   return [...set];
 }
 
-// Build a category dropdown. `groups` = array of unique Group strings.
-// onChange is called with the selected value or '' for "All".
 export function buildCategorySelect(groups, onChange, selected = '') {
   const select = el('select', { 'aria-label': 'Filter by category' });
   select.appendChild(el('option', { value: '' }, `All categories (${groups.length})`));
