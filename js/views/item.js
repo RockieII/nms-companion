@@ -73,7 +73,9 @@ export async function renderItem(root, id) {
 async function renderRegularProfile(root, item) {
   root.innerHTML = '';
 
-  const favKind = item._kind === 'resource' ? 'resource' : 'product';
+  // _kind comes from data.js LOOKUP_KEYS (plural: 'resources', 'products', …).
+  // Favorites use the singular namespace ('resource', 'product').
+  const favKind = item._kind === 'resources' ? 'resource' : 'product';
   const starred = isFavorite(favKind, item.Id);
   const star = el('button', {
     class: 'profile-star' + (starred ? ' on' : ''),
@@ -115,7 +117,7 @@ async function renderRegularProfile(root, item) {
 
   // Obtainable — Group-based hint.
   const hints = OBTAIN_HINTS[item.Group];
-  if (hints && item._kind === 'resource') {
+  if (hints && item._kind === 'resources') {
     root.appendChild(section({ title: 'Obtainable from' },
       el('ul', { class: 'obtain-list' }, hints.map(h => el('li', {}, h)))
     ));

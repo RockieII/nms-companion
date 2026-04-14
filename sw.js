@@ -2,7 +2,7 @@
 // Game data itself is served from LocalStorage after first load, so it
 // doesn't need to live in the cache.
 
-const CACHE_NAME = 'nms-companion-v7';
+const CACHE_NAME = 'nms-companion-v8';
 
 const SHELL = [
   './',

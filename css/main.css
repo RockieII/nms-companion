@@ -275,6 +275,36 @@ a.row { text-decoration: none; color: inherit; }
 a.recipe-line { text-decoration: none; color: inherit; }
 .recipe-line.tall { flex-direction: column; align-items: flex-start; }
 .recipe-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; width: 100%; }
+
+/* Refiner recipe row layout: [output] [←] [inputs stacked] */
+.recipe-line.refiner-row { display: block; }
+.refiner-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.refiner-output { justify-self: start; min-width: 0; }
+.refiner-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-self: end;
+  align-items: flex-end;
+  min-width: 0;
+}
+.refiner-output .recipe-chip { max-width: 100%; }
+.refiner-inputs .recipe-chip { max-width: 100%; }
+.recipe-chip.prominent {
+  background: var(--bg);
+  border-color: var(--accent-dim);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 12px 5px 5px;
+}
+.recipe-chip.prominent img { width: 26px; height: 26px; }
+.recipe-chip-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .recipe-chip {
   display: inline-flex;
   align-items: center;

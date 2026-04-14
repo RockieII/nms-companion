@@ -147,26 +147,31 @@ async function paintRefiner(listEl, state) {
 
 function buildRefinerRow({ r, out, ins }) {
   const line = el('a', {
-    class: 'recipe-line tall',
+    class: 'recipe-line refiner-row',
     href: `#item/${encodeURIComponent(r.Id)}`,
   });
-  const chips = el('div', { class: 'recipe-chips' });
-  ins.forEach((item, i) => {
-    if (i > 0) chips.appendChild(el('span', { class: 'recipe-arrow' }, '+'));
-    chips.appendChild(chip(item, r.Inputs[i].Quantity, r.Inputs[i].Id));
-  });
-  chips.appendChild(el('span', { class: 'recipe-arrow' }, '→'));
-  chips.appendChild(chip(out, r.Output.Quantity, r.Output.Id));
 
-  line.appendChild(chips);
+  const main = el('div', { class: 'refiner-main' }, [
+    // Left: output (prominent).
+    el('div', { class: 'refiner-output' }, [
+      chip(out, r.Output.Quantity, r.Output.Id, true),
+    ]),
+    // Center: arrow "made from".
+    el('span', { class: 'recipe-arrow' }, '←'),
+    // Right: inputs stacked vertically.
+    el('div', { class: 'refiner-inputs' },
+      ins.map((item, i) => chip(item, r.Inputs[i].Quantity, r.Inputs[i].Id))
+    ),
+  ]);
+  line.appendChild(main);
   line.appendChild(el('div', { class: 'recipe-meta' },
     `${r.Operation || 'Refine'} · ${r.Time}s`));
   return line;
 }
 
-function chip(item, qty, fallbackId) {
+function chip(item, qty, fallbackId, prominent = false) {
   const name = item?.Name || fallbackId;
-  return el('span', { class: 'recipe-chip' }, [
+  return el('span', { class: 'recipe-chip' + (prominent ? ' prominent' : '') }, [
     imgOrPlaceholder(item),
     el('span', { class: 'recipe-chip-text' }, `${qty}× ${name}`),
   ]);
