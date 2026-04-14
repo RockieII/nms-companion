@@ -30,6 +30,19 @@ function sanitize(html) {
   if (!html) return '';
   // Drop scripts + styles entirely (along with their contents).
   html = html.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
+  // Steam often ships plain text with bare newlines. Convert those to HTML
+  // paragraphs/breaks BEFORE sanitizing so readers see the structure.
+  // Do not touch content that already contains block-level tags.
+  const hasBlocks = /<\/?(p|br|div|ul|ol|li|h\d|blockquote)\b/i.test(html);
+  if (!hasBlocks) {
+    html = html
+      .split(/\r?\n{2,}/)        // paragraph breaks on blank lines
+      .map(p => p.replace(/\r?\n/g, '<br>')) // single newlines as line breaks
+      .map(p => p.trim())
+      .filter(Boolean)
+      .map(p => `<p>${p}</p>`)
+      .join('');
+  }
   // Strip BBCode remnants that Steam sometimes leaves behind.
   html = html.replace(/\[\/?(?:b|i|u|url|img|quote|list|\*|h\d)[^\]]*\]/gi, '');
   // Walk every tag and rewrite.
