@@ -84,9 +84,12 @@ export async function getObtainable(itemId, group) {
   const entries = data.byItem?.[itemId] || data.byGroup?.[group] || [];
   return entries
     .map(entry => {
-      const src = data.sources?.[entry.sourceId];
+      // Tolerate both legacy string ids and new { sourceId, note } objects.
+      const sourceId = typeof entry === 'string' ? entry : entry?.sourceId;
+      const note     = typeof entry === 'string' ? null  : (entry?.note || null);
+      const src = data.sources?.[sourceId];
       if (!src) return null;
-      return { id: entry.sourceId, ...src, note: entry.note || null };
+      return { id: sourceId, ...src, note };
     })
     .filter(Boolean);
 }
@@ -103,8 +106,8 @@ export async function getSourceNoteForItem(sourceId, itemId) {
   if (!itemId) return null;
   const data = await getObtainableData();
   const entries = data.byItem?.[itemId] || [];
-  const entry = entries.find(e => e.sourceId === sourceId);
-  return entry?.note || null;
+  const entry = entries.find(e => (typeof e === 'string' ? e : e?.sourceId) === sourceId);
+  return entry && typeof entry === 'object' ? (entry.note || null) : null;
 }
 
 // Icon overrides — Fandom-hosted URLs for items whose AssistantNMS CDN icon
