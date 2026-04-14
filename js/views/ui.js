@@ -20,6 +20,22 @@ export function el(tag, attrs = {}, children = []) {
   return node;
 }
 
+// Placeholder used when an icon 404s or is missing.
+// Small hex/crystal glyph tinted with the app accent color.
+export const ICON_PLACEHOLDER =
+  "data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3e%3crect width='64' height='64' rx='10' fill='%231c253d'/%3e%3cpath d='M32 14 L50 24 L50 44 L32 54 L14 44 L14 24 Z' fill='none' stroke='%23ffcc33' stroke-width='3' stroke-linejoin='round' opacity='.75'/%3e%3ccircle cx='32' cy='34' r='5' fill='%23ffcc33' opacity='.75'/%3e%3c/svg%3e";
+
+export function imgOrPlaceholder(url, extraAttrs = {}) {
+  const src = url || ICON_PLACEHOLDER;
+  return el('img', {
+    src,
+    alt: '',
+    loading: 'lazy',
+    onerror: (e) => { if (e.target.src !== ICON_PLACEHOLDER) e.target.src = ICON_PLACEHOLDER; },
+    ...extraAttrs,
+  });
+}
+
 export function debounce(fn, ms = 150) {
   let t;
   return (...args) => {
@@ -32,13 +48,7 @@ export function debounce(fn, ms = 150) {
 export function buildRow({ item, kind, subtitle, onOpen }) {
   const starred = isFavorite(kind, item.Id);
   const row = el('button', { class: 'row', type: 'button' }, [
-    el('img', {
-      class: 'row-icon',
-      src: item.CdnUrl || '',
-      alt: '',
-      loading: 'lazy',
-      onerror: (e) => { e.target.style.visibility = 'hidden'; },
-    }),
+    imgOrPlaceholder(item.CdnUrl, { class: 'row-icon' }),
     el('div', { class: 'row-body' }, [
       el('div', { class: 'row-title' }, item.Name || item.Id),
       el('div', { class: 'row-sub' }, subtitle || item.Group || ''),

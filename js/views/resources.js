@@ -1,5 +1,5 @@
 import { getResources } from '../data.js';
-import { buildRow, buildCategorySelect, uniqueGroups, openSheet, debounce, el, norm } from './ui.js';
+import { buildRow, buildCategorySelect, uniqueGroups, openSheet, debounce, el, norm, imgOrPlaceholder } from './ui.js';
 
 export async function renderResources(root) {
   const resources = await getResources();
@@ -71,7 +71,7 @@ function openResourceSheet(item) {
   openSheet(({ close }) => {
     const wrap = document.createDocumentFragment();
     wrap.appendChild(el('div', { class: 'sheet-head' }, [
-      el('img', { class: 'sheet-icon', src: item.CdnUrl || '', alt: '' }),
+      imgOrPlaceholder(item.CdnUrl, { class: 'sheet-icon' }),
       el('div', {}, [
         el('h2', { class: 'sheet-title' }, item.Name),
         el('p',  { class: 'sheet-group' }, item.Group || ''),

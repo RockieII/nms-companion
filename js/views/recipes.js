@@ -1,5 +1,5 @@
 import { getRefinerRecipes, getCraftingRecipes, getItemById } from '../data.js';
-import { buildRow, buildCategorySelect, uniqueGroups, openSheet, debounce, el, norm } from './ui.js';
+import { buildRow, buildCategorySelect, uniqueGroups, openSheet, debounce, el, norm, imgOrPlaceholder } from './ui.js';
 
 export async function renderRecipes(root) {
   root.innerHTML = '';
@@ -129,7 +129,7 @@ function buildRefinerRow({ r, out, ins }) {
 function chip(item, qty, fallbackId) {
   const name = item?.Name || fallbackId;
   return el('span', { class: 'recipe-chip' }, [
-    item?.CdnUrl ? el('img', { src: item.CdnUrl, alt: '' }) : el('span', { class: 'row-icon', style: 'width:22px;height:22px;' }),
+    imgOrPlaceholder(item?.CdnUrl),
     document.createTextNode(`${qty}× ${name}`),
   ]);
 }
@@ -138,7 +138,7 @@ function openRefinerSheet(r, out, ins) {
   openSheet(({ close }) => {
     const wrap = document.createDocumentFragment();
     wrap.appendChild(el('div', { class: 'sheet-head' }, [
-      out?.CdnUrl ? el('img', { class: 'sheet-icon', src: out.CdnUrl, alt: '' }) : el('div', { class: 'sheet-icon' }),
+      imgOrPlaceholder(out?.CdnUrl, { class: 'sheet-icon' }),
       el('div', {}, [
         el('h2', { class: 'sheet-title' }, r.Operation || `Refine → ${out?.Name || r.Output.Id}`),
         el('p',  { class: 'sheet-group' }, `Refiner · ${r.Time}s${out?.Group ? ' · ' + out.Group : ''}`),
@@ -147,7 +147,7 @@ function openRefinerSheet(r, out, ins) {
     ]));
 
     const ingEls = ins.map((item, i) => el('div', { class: 'recipe-line' }, [
-      item?.CdnUrl ? el('img', { class: 'row-icon', src: item.CdnUrl, alt: '', style: 'width:28px;height:28px;' }) : el('span'),
+      imgOrPlaceholder(item?.CdnUrl, { class: 'row-icon', style: 'width:28px;height:28px;' }),
       document.createTextNode(`${r.Inputs[i].Quantity}× ${item?.Name || r.Inputs[i].Id}`),
     ]));
     wrap.appendChild(el('div', { class: 'sheet-section' }, [
@@ -158,7 +158,7 @@ function openRefinerSheet(r, out, ins) {
     wrap.appendChild(el('div', { class: 'sheet-section' }, [
       el('h3', {}, 'Output'),
       el('div', { class: 'recipe-line' }, [
-        out?.CdnUrl ? el('img', { class: 'row-icon', src: out.CdnUrl, alt: '', style: 'width:28px;height:28px;' }) : el('span'),
+        imgOrPlaceholder(out?.CdnUrl, { class: 'row-icon', style: 'width:28px;height:28px;' }),
         document.createTextNode(`${r.Output.Quantity}× ${out?.Name || r.Output.Id}`),
       ]),
     ]));
@@ -220,7 +220,7 @@ function openCraftingSheet(p) {
   openSheet(({ close }) => {
     const wrap = document.createDocumentFragment();
     wrap.appendChild(el('div', { class: 'sheet-head' }, [
-      p.CdnUrl ? el('img', { class: 'sheet-icon', src: p.CdnUrl, alt: '' }) : el('div', { class: 'sheet-icon' }),
+      imgOrPlaceholder(p.CdnUrl, { class: 'sheet-icon' }),
       el('div', {}, [
         el('h2', { class: 'sheet-title' }, p.Name),
         el('p',  { class: 'sheet-group' }, p.Group || ''),
@@ -240,7 +240,7 @@ function openCraftingSheet(p) {
     p.RequiredItems.forEach(async (ing) => {
       const item = await getItemById(ing.Id);
       ingSection.appendChild(el('div', { class: 'recipe-line' }, [
-        item?.CdnUrl ? el('img', { class: 'row-icon', src: item.CdnUrl, alt: '', style: 'width:28px;height:28px;' }) : el('span'),
+        imgOrPlaceholder(item?.CdnUrl, { class: 'row-icon', style: 'width:28px;height:28px;' }),
         document.createTextNode(`${ing.Quantity}× ${item?.Name || ing.Id}`),
       ]));
     });

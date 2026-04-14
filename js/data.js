@@ -51,14 +51,25 @@ async function fetchJson(url) {
   return res.json();
 }
 
+// For any item that has an Icon but no CdnUrl, build the CDN url from Icon.
+// (Technology.json and Others.json don't ship CdnUrl; the asset is still on cdn.nmsassistant.com.)
+const CDN_BASE = 'https://cdn.nmsassistant.com';
+function normalizeItems(list) {
+  if (!Array.isArray(list)) return list;
+  for (const it of list) {
+    if (!it.CdnUrl && it.Icon) it.CdnUrl = `${CDN_BASE}/${it.Icon}`;
+  }
+  return list;
+}
+
 async function ensure(key) {
   if (inMemory[key]) return inMemory[key];
   const cached = loadFromStorage(STORAGE[key]);
   if (cached) {
-    inMemory[key] = cached;
-    return cached;
+    inMemory[key] = normalizeItems(cached);
+    return inMemory[key];
   }
-  const data = await fetchJson(ENDPOINTS[key]);
+  const data = normalizeItems(await fetchJson(ENDPOINTS[key]));
   localStorage.setItem(STORAGE[key], JSON.stringify(data));
   if (!localStorage.getItem(STORAGE.stamp)) {
     localStorage.setItem(STORAGE.stamp, new Date().toISOString());
@@ -84,7 +95,7 @@ export async function refresh() {
   const errors = [];
   for (const key of Object.keys(ENDPOINTS)) {
     try {
-      const data = await fetchJson(ENDPOINTS[key]);
+      const data = normalizeItems(await fetchJson(ENDPOINTS[key]));
       localStorage.setItem(STORAGE[key], JSON.stringify(data));
       inMemory[key] = data;
     } catch (e) {
