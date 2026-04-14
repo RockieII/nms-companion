@@ -6,9 +6,9 @@ export async function renderSettings(root) {
   root.innerHTML = '';
 
   const stampEl = el('span', {}, formatStamp(lastRefreshedAt()));
-  const resourcesCount = jsonCount('nms:resources:v1');
-  const productsCount  = jsonCount('nms:products:v1');
-  const refinerCount   = jsonCount('nms:refinery:v1');
+  const resourcesCount = jsonCount('nms:resources:v2');
+  const productsCount  = jsonCount('nms:products:v2');
+  const refinerCount   = jsonCount('nms:refinery:v2');
 
   const refreshBtn = el('button', { class: 'btn' }, 'Refresh game data');
   refreshBtn.addEventListener('click', async () => {
@@ -43,7 +43,8 @@ export async function renderSettings(root) {
         const btn = el('button', { class: 'btn btn-secondary' }, 'Clear cache');
         btn.addEventListener('click', () => {
           if (!confirm('Clear all cached data? Favorites will be kept.')) return;
-          ['nms:resources:v1','nms:products:v1','nms:refinery:v1','nms:lastRefresh:v1']
+          Object.keys(localStorage)
+            .filter(k => k.startsWith('nms:') && k !== 'nms:favorites:v1')
             .forEach(k => localStorage.removeItem(k));
           toast('Cache cleared');
           renderSettings(root);

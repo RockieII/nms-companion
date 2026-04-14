@@ -1,21 +1,39 @@
 // Data layer — the single source of truth for fetching + caching game data.
 // Views must not call fetch directly; they read through the functions below.
 
+const BASE = 'https://cdn.jsdelivr.net/gh/bradhave94/nms@main/src/data';
+
 const ENDPOINTS = {
-  resources: 'https://cdn.jsdelivr.net/gh/bradhave94/nms@main/src/data/RawMaterials.json',
-  products:  'https://cdn.jsdelivr.net/gh/bradhave94/nms@main/src/data/Products.json',
-  refinery:  'https://cdn.jsdelivr.net/gh/bradhave94/nms@main/src/data/Refinery.json',
+  resources:   `${BASE}/RawMaterials.json`,
+  products:    `${BASE}/Products.json`,
+  refinery:    `${BASE}/Refinery.json`,
+  conTech:     `${BASE}/ConstructedTechnology.json`,
+  technology:  `${BASE}/Technology.json`,
+  curiosities: `${BASE}/Curiosities.json`,
+  others:      `${BASE}/Others.json`,
+  trade:       `${BASE}/Trade.json`,
 };
 
 const STORAGE = {
-  resources: 'nms:resources:v1',
-  products:  'nms:products:v1',
-  refinery:  'nms:refinery:v1',
-  stamp:     'nms:lastRefresh:v1',
-  favorites: 'nms:favorites:v1',
+  resources:   'nms:resources:v2',
+  products:    'nms:products:v2',
+  refinery:    'nms:refinery:v2',
+  conTech:     'nms:conTech:v1',
+  technology:  'nms:technology:v1',
+  curiosities: 'nms:curiosities:v1',
+  others:      'nms:others:v1',
+  trade:       'nms:trade:v1',
+  stamp:       'nms:lastRefresh:v2',
+  favorites:   'nms:favorites:v1',
 };
 
-let inMemory = { resources: null, products: null, refinery: null };
+// Keys whose data is used to resolve recipe ingredient IDs.
+const LOOKUP_KEYS = ['resources', 'products', 'conTech', 'technology', 'curiosities', 'others', 'trade'];
+
+// Raw Material groups that aren't real resources (faction standing, currency tokens).
+const RESOURCE_EXCLUDED_GROUPS = new Set(['Reward Item']);
+
+const inMemory = {};
 let idIndex = null;
 
 function loadFromStorage(key) {
@@ -50,7 +68,8 @@ async function ensure(key) {
 }
 
 export async function getResources() {
-  return ensure('resources');
+  const all = await ensure('resources');
+  return all.filter(r => !RESOURCE_EXCLUDED_GROUPS.has(r.Group));
 }
 
 export async function getCraftingRecipes() {
@@ -63,7 +82,7 @@ export async function getRefinerRecipes() {
 
 export async function refresh() {
   const errors = [];
-  for (const key of ['resources', 'products', 'refinery']) {
+  for (const key of Object.keys(ENDPOINTS)) {
     try {
       const data = await fetchJson(ENDPOINTS[key]);
       localStorage.setItem(STORAGE[key], JSON.stringify(data));
@@ -84,17 +103,18 @@ export function lastRefreshedAt() {
   return localStorage.getItem(STORAGE.stamp);
 }
 
-// Build a lookup from every known Id (raw + product) to its item,
-// so we can resolve Inputs/Outputs referenced by Id in recipes.
+// Build a lookup from every known Id to its item, across all 7 data files.
+// Used to resolve Inputs/Outputs referenced by Id in recipes.
 export async function getItemById(id) {
   if (!idIndex) {
-    const [resources, products] = await Promise.all([
-      ensure('resources'),
-      ensure('products'),
-    ]);
+    const lists = await Promise.all(LOOKUP_KEYS.map(k => ensure(k)));
     idIndex = {};
-    for (const r of resources) idIndex[r.Id] = { ...r, _kind: 'resource' };
-    for (const p of products)  idIndex[p.Id] = { ...p, _kind: 'product' };
+    for (let i = 0; i < LOOKUP_KEYS.length; i++) {
+      const kind = LOOKUP_KEYS[i];
+      for (const item of lists[i]) {
+        idIndex[item.Id] = { ...item, _kind: kind };
+      }
+    }
   }
   return idIndex[id] || null;
 }
@@ -121,5 +141,5 @@ export function toggleFavorite(type, id) {
   if (idx >= 0) favs.splice(idx, 1);
   else favs.push({ type, id });
   saveFavs(favs);
-  return idx < 0; // true = now favorited
+  return idx < 0;
 }

@@ -91,3 +91,23 @@ export function closeSheet() {
 export function norm(s) {
   return (s || '').toString().toLowerCase();
 }
+
+// Extract unique Group values from a list of items, sorted alphabetically.
+export function uniqueGroups(items) {
+  const set = new Set();
+  for (const it of items) if (it && it.Group) set.add(it.Group);
+  return [...set];
+}
+
+// Build a category dropdown. `groups` = array of unique Group strings.
+// onChange is called with the selected value or '' for "All".
+export function buildCategorySelect(groups, onChange, selected = '') {
+  const select = el('select', { 'aria-label': 'Filter by category' });
+  select.appendChild(el('option', { value: '' }, `All categories (${groups.length})`));
+  for (const g of [...groups].sort((a, b) => a.localeCompare(b))) {
+    select.appendChild(el('option', { value: g }, g));
+  }
+  if (selected) select.value = selected;
+  select.addEventListener('change', () => onChange(select.value));
+  return el('div', { class: 'filterbar' }, [select]);
+}

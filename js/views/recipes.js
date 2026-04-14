@@ -1,10 +1,10 @@
 import { getRefinerRecipes, getCraftingRecipes, getItemById } from '../data.js';
-import { buildRow, openSheet, debounce, el, norm } from './ui.js';
+import { buildRow, buildCategorySelect, uniqueGroups, openSheet, debounce, el, norm } from './ui.js';
 
 export async function renderRecipes(root) {
   root.innerHTML = '';
 
-  const state = { mode: 'refiner', query: '' };
+  const state = { mode: 'refiner', query: '', group: '' };
 
   const subtabs = el('div', { class: 'subtabs' }, [
     el('button', { class: 'subtab active', 'data-sub': 'refiner' }, 'Refiner'),
@@ -17,26 +17,41 @@ export async function renderRecipes(root) {
     autocapitalize: 'off',
     spellcheck: 'false',
   });
-  const searchBar = el('div', { class: 'searchbar' }, [searchInput]);
-  const listEl = el('div', { class: 'list' });
+  const searchBar  = el('div', { class: 'searchbar' }, [searchInput]);
+  const filterHost = el('div'); // category select mounts here; rebuilt when mode changes
+  const listEl     = el('div', { class: 'list' });
 
   root.appendChild(subtabs);
   root.appendChild(searchBar);
+  root.appendChild(filterHost);
   root.appendChild(listEl);
 
+  async function rebuildFilter() {
+    filterHost.innerHTML = '';
+    const groups = state.mode === 'refiner'
+      ? await refinerOutputGroups()
+      : uniqueGroups(await getCraftingRecipes());
+    filterHost.appendChild(buildCategorySelect(groups, (value) => {
+      state.group = value;
+      repaint();
+    }, state.group));
+  }
+
   subtabs.querySelectorAll('.subtab').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       state.mode = btn.dataset.sub;
+      state.group = '';
       subtabs.querySelectorAll('.subtab').forEach(b =>
         b.classList.toggle('active', b === btn));
+      await rebuildFilter();
       repaint();
     });
   });
 
   const repaint = debounce(async () => {
     listEl.innerHTML = '<div class="spinner"></div>';
-    if (state.mode === 'refiner') await paintRefiner(listEl, state.query);
-    else await paintCrafting(listEl, state.query);
+    if (state.mode === 'refiner') await paintRefiner(listEl, state.query, state.group);
+    else await paintCrafting(listEl, state.query, state.group);
   }, 140);
 
   searchInput.addEventListener('input', () => {
@@ -44,13 +59,24 @@ export async function renderRecipes(root) {
     repaint();
   });
 
+  await rebuildFilter();
   repaint();
 }
 
-async function paintRefiner(listEl, query) {
-  const [recipes] = await Promise.all([getRefinerRecipes()]);
+async function refinerOutputGroups() {
+  const recipes = await getRefinerRecipes();
+  const set = new Set();
+  for (const r of recipes) {
+    const out = await getItemById(r.Output.Id);
+    if (out && out.Group) set.add(out.Group);
+  }
+  return [...set];
+}
 
-  // Pre-resolve names for searching.
+async function paintRefiner(listEl, query, group) {
+  const recipes = await getRefinerRecipes();
+
+  // Resolve names for searching AND filtering by output group.
   const enriched = [];
   for (const r of recipes) {
     const out = await getItemById(r.Output.Id);
@@ -59,9 +85,9 @@ async function paintRefiner(listEl, query) {
     enriched.push({ r, out, ins, names });
   }
 
-  const filtered = query
-    ? enriched.filter(e => e.names.includes(query))
-    : enriched;
+  let filtered = enriched;
+  if (group) filtered = filtered.filter(e => e.out?.Group === group);
+  if (query) filtered = filtered.filter(e => e.names.includes(query));
 
   listEl.innerHTML = '';
   if (filtered.length === 0) {
@@ -87,10 +113,10 @@ function buildRefinerRow({ r, out, ins }) {
   });
   ins.forEach((item, i) => {
     if (i > 0) chips.appendChild(el('span', { class: 'recipe-arrow' }, '+'));
-    chips.appendChild(chip(item, r.Inputs[i].Quantity));
+    chips.appendChild(chip(item, r.Inputs[i].Quantity, r.Inputs[i].Id));
   });
   chips.appendChild(el('span', { class: 'recipe-arrow' }, '→'));
-  chips.appendChild(chip(out, r.Output.Quantity));
+  chips.appendChild(chip(out, r.Output.Quantity, r.Output.Id));
 
   line.appendChild(chips);
   line.appendChild(el('div', { class: 'recipe-meta' },
@@ -100,8 +126,8 @@ function buildRefinerRow({ r, out, ins }) {
   return line;
 }
 
-function chip(item, qty) {
-  const name = item?.Name || '?';
+function chip(item, qty, fallbackId) {
+  const name = item?.Name || fallbackId;
   return el('span', { class: 'recipe-chip' }, [
     item?.CdnUrl ? el('img', { src: item.CdnUrl, alt: '' }) : el('span', { class: 'row-icon', style: 'width:22px;height:22px;' }),
     document.createTextNode(`${qty}× ${name}`),
@@ -114,8 +140,8 @@ function openRefinerSheet(r, out, ins) {
     wrap.appendChild(el('div', { class: 'sheet-head' }, [
       out?.CdnUrl ? el('img', { class: 'sheet-icon', src: out.CdnUrl, alt: '' }) : el('div', { class: 'sheet-icon' }),
       el('div', {}, [
-        el('h2', { class: 'sheet-title' }, r.Operation || `Refine → ${out?.Name || '?'}`),
-        el('p',  { class: 'sheet-group' }, `Refiner · ${r.Time}s`),
+        el('h2', { class: 'sheet-title' }, r.Operation || `Refine → ${out?.Name || r.Output.Id}`),
+        el('p',  { class: 'sheet-group' }, `Refiner · ${r.Time}s${out?.Group ? ' · ' + out.Group : ''}`),
       ]),
       el('button', { class: 'sheet-close', onclick: close, 'aria-label': 'Close', html: '×' }),
     ]));
@@ -141,14 +167,13 @@ function openRefinerSheet(r, out, ins) {
   });
 }
 
-async function paintCrafting(listEl, query) {
+async function paintCrafting(listEl, query, group) {
   const products = await getCraftingRecipes();
-  // Only products with a recipe (RequiredItems populated) count as "crafting recipes".
   const craftable = products.filter(p => Array.isArray(p.RequiredItems) && p.RequiredItems.length > 0);
 
-  const filtered = query
-    ? (await filterByIngredientOrName(craftable, query))
-    : craftable;
+  let filtered = craftable;
+  if (group) filtered = filtered.filter(p => p.Group === group);
+  if (query) filtered = await filterByIngredientOrName(filtered, query);
 
   listEl.innerHTML = '';
   if (filtered.length === 0) {
@@ -212,7 +237,6 @@ function openCraftingSheet(p) {
 
     const ingSection = el('div', { class: 'sheet-section' }, [el('h3', {}, 'Ingredients')]);
     wrap.appendChild(ingSection);
-    // Resolve names async; render placeholders immediately.
     p.RequiredItems.forEach(async (ing) => {
       const item = await getItemById(ing.Id);
       ingSection.appendChild(el('div', { class: 'recipe-line' }, [

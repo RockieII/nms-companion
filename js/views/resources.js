@@ -1,9 +1,12 @@
 import { getResources } from '../data.js';
-import { buildRow, openSheet, debounce, el, norm } from './ui.js';
+import { buildRow, buildCategorySelect, uniqueGroups, openSheet, debounce, el, norm } from './ui.js';
 
 export async function renderResources(root) {
   const resources = await getResources();
   root.innerHTML = '';
+
+  const state = { query: '', group: '' };
+  const groups = uniqueGroups(resources);
 
   const listEl = el('div', { class: 'list' });
   const searchInput = el('input', {
@@ -14,11 +17,26 @@ export async function renderResources(root) {
     spellcheck: 'false',
   });
   const searchBar = el('div', { class: 'searchbar' }, [searchInput]);
+  const filterBar = buildCategorySelect(groups, (value) => {
+    state.group = value;
+    paint();
+  });
 
   root.appendChild(searchBar);
+  root.appendChild(filterBar);
   root.appendChild(listEl);
 
-  function paint(items) {
+  function paint() {
+    const q = state.query;
+    const g = state.group;
+    let items = resources;
+    if (g) items = items.filter(r => r.Group === g);
+    if (q) items = items.filter(r =>
+      norm(r.Name).includes(q) ||
+      norm(r.Abbrev).includes(q) ||
+      norm(r.Group).includes(q)
+    );
+
     listEl.innerHTML = '';
     if (items.length === 0) {
       listEl.appendChild(el('div', { class: 'empty' }, 'No matches.'));
@@ -41,17 +59,12 @@ export async function renderResources(root) {
   }
 
   const filter = debounce(() => {
-    const q = norm(searchInput.value);
-    if (!q) return paint(resources);
-    paint(resources.filter(r =>
-      norm(r.Name).includes(q) ||
-      norm(r.Abbrev).includes(q) ||
-      norm(r.Group).includes(q)
-    ));
+    state.query = norm(searchInput.value);
+    paint();
   }, 120);
 
   searchInput.addEventListener('input', filter);
-  paint(resources);
+  paint();
 }
 
 function openResourceSheet(item) {
