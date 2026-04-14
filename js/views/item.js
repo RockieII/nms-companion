@@ -4,53 +4,11 @@ import {
   getItemById,
   getRecipesUsing,
   getRecipesProducing,
+  getObtainable,
   isFavorite,
   toggleFavorite,
 } from '../data.js';
 import { imgOrPlaceholder, el } from './ui.js';
-
-// Group-based hint for "Obtainable" — maps the in-game category to where
-// players usually find that material. Manual map, keyed by exact Group.
-const OBTAIN_HINTS = {
-  'Unrefined Organic Element':        ['Trees, plants, and vegetation (Mining Laser)'],
-  'Refined Organic Element':          ['Refining unrefined organic elements'],
-  'Concentrated Liquid Fuel':         ['Refining organic materials'],
-  'High Energy Substance':            ['Crystal formations, asteroids, deep caves'],
-  'Neutron-Rich Fuel Element':        ['Cave-dwelling deposits, nuclear formations'],
-  'Metallic Mineral Extract':         ['Surface minerals (mineral extractors, mining)'],
-  'Processed Metallic Minerals':      ['Refining raw metallic minerals'],
-  'Charged Metallic Element':         ['Rare metallic deposits in exotic biomes'],
-  'Abundant Mineral':                 ['Common ground deposits on most planets'],
-  'Unrefined Catalytic Element':      ['Dense crystalline deposits (caves, rock formations)'],
-  'Refined Catalytic Element':        ['Refining catalytic elements'],
-  'Subterranean Mineral':             ['Underground deposits (caves)'],
-  'Processed Subterranean Mineral':   ['Refining subterranean minerals'],
-  'Aquatic Mineral Extract':          ['Ocean-floor deposits (underwater planets)'],
-  'Processed Aquatic Mineral':        ['Refining aquatic minerals'],
-  'Organic Compound':                 ['Refining organic materials'],
-  'Refined Stellar Metal: Yellow':    ['Yellow-star systems, refining'],
-  'Refined Stellar Metal: Red':       ['Red-star systems, refining'],
-  'Refined Stellar Metal: Green':     ['Green-star systems, refining'],
-  'Refined Stellar Metal: Blue':      ['Blue-star systems, refining'],
-  'Refined Stellar Metal: Purple':    ['Purple-star systems (unlocked late-game)'],
-  'Highly Refined Stellar Metal':     ['Advanced refining of stellar metals'],
-  'Localised Earth Element':          ['Surface deposits tied to specific biomes'],
-  'Harvested Substance':              ['Harvested from fauna'],
-  'Anomalous Material':               ['Anomalies, rare encounters'],
-  'Valuable Asteroid Mineral':        ['Asteroid fields (ship-mounted lasers)'],
-  'Compressed Atmospheric Gas':       ['Atmosphere Harvester (specific biomes)'],
-  'Harvested Agricultural Substance': ['Farmed plants, hydroponic growing'],
-  'Junk':                             ['Salvaged debris, crashed freighters, old ruins'],
-  'Technological Currency':           ['Nanite Clusters from scrapping, missions'],
-  'Salvaged Scrap':                   ['Scrapping old technology, dismantling'],
-  'Ashes of Despair':                 ['Twisted worlds (Atlas content)'],
-  'Decayed Spacetime Remnant':        ['Dissonant planets, abandoned systems'],
-  'Recessive Creature Genes':         ['Selective breeding, creature companions'],
-  'Disharmonic Metal':                ['Sentinel worlds (harvesting Sentinels)'],
-  'Essence of Atlantid':              ['Atlantid storms, lightning strikes'],
-  'Soul Fragment':                    ['Twisted worlds / Atlas rewards'],
-  'Recycled Minerals':                ['Recycling scrap at a Refinery'],
-};
 
 export async function renderItem(root, id) {
   root.innerHTML = '<div class="spinner" aria-label="Loading"></div>';
@@ -115,14 +73,6 @@ async function renderRegularProfile(root, item) {
     root.appendChild(section({ title: 'Crafting recipe' }, ingBody));
   }
 
-  // Obtainable — Group-based hint.
-  const hints = OBTAIN_HINTS[item.Group];
-  if (hints && item._kind === 'resources') {
-    root.appendChild(section({ title: 'Obtainable from' },
-      el('ul', { class: 'obtain-list' }, hints.map(h => el('li', {}, h)))
-    ));
-  }
-
   root.appendChild(section({ title: 'Stats' },
     el('div', { class: 'stat-grid' }, [
       item.Abbrev && statLine('Symbol', item.Abbrev),
@@ -132,8 +82,18 @@ async function renderRegularProfile(root, item) {
     ].filter(Boolean))
   ));
 
-  // Made by — refiner-only aggregation (the product's own crafting recipe
-  // is already displayed above as "Crafting recipe").
+  // Obtainable — below Stats. Each source is a tappable row that opens a
+  // detail page explaining that source in depth.
+  if (item._kind === 'resources') {
+    const sources = await getObtainable(item.Id, item.Group);
+    if (sources.length > 0) {
+      const body = document.createDocumentFragment();
+      for (const s of sources) body.appendChild(sourceRow(s));
+      root.appendChild(section({ title: 'Obtainable from' }, body));
+    }
+  }
+
+  // Made by — refiner-only aggregation.
   const producedBy = await getRecipesProducing(item.Id);
   const producedByRefiner = producedBy.filter(e => e.type === 'refiner');
   if (producedByRefiner.length > 0) {
@@ -146,7 +106,7 @@ async function renderRegularProfile(root, item) {
     ));
   }
 
-  // Used in — aggregated by type; collapsible because this list can be huge.
+  // Used in — aggregated by type. Max two rows, so no collapsible.
   const usedIn = await getRecipesUsing(item.Id);
   const usedRefiner = usedIn.filter(e => e.type === 'refiner');
   const usedCrafting = usedIn.filter(e => e.type === 'product');
@@ -162,11 +122,7 @@ async function renderRegularProfile(root, item) {
       count: usedCrafting.length,
       href: `#recipes?mode=crafting&uses=${encodeURIComponent(item.Id)}`,
     }));
-    root.appendChild(section({
-      title: `Used in (${usedRefiner.length + usedCrafting.length})`,
-      collapsible: true,
-      defaultOpen: false,
-    }, body));
+    root.appendChild(section({ title: 'Used in' }, body));
   }
 }
 
@@ -256,4 +212,23 @@ function aggregateRow({ label, count, href }) {
     ]),
     el('span', { class: 'row-chevron', html: '›' }),
   ]);
+}
+
+// Clickable Obtainable row — opens the source detail page.
+function sourceRow(source) {
+  return el('a', {
+    class: 'row aggregate-row',
+    href: `#source/${encodeURIComponent(source.id)}`,
+  }, [
+    el('div', { class: 'row-body' }, [
+      el('div', { class: 'row-title' }, source.name),
+      el('div', { class: 'row-sub' }, truncate(source.detail, 80)),
+    ]),
+    el('span', { class: 'row-chevron', html: '›' }),
+  ]);
+}
+
+function truncate(s, max) {
+  if (!s) return '';
+  return s.length <= max ? s : s.slice(0, max).replace(/\s+\S*$/, '') + '…';
 }

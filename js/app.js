@@ -5,6 +5,7 @@ import { renderUpdate }    from './views/update.js';
 import { renderFavorites } from './views/favorites.js';
 import { renderSettings }  from './views/settings.js';
 import { renderItem }      from './views/item.js';
+import { renderSource }    from './views/source.js';
 
 const viewRoot = document.getElementById('view');
 const tabLabel = document.getElementById('tab-label');
@@ -33,6 +34,9 @@ function parseRoute(hash) {
   if (raw.startsWith('update/')) {
     return { kind: 'update', id: decodeURIComponent(raw.slice(7)) };
   }
+  if (raw.startsWith('source/')) {
+    return { kind: 'source', id: decodeURIComponent(raw.slice(7)) };
+  }
   const [name, queryStr] = raw.split('?');
   if (TABS[name]) {
     const params = {};
@@ -50,13 +54,15 @@ function render() {
   // mid-page when navigating from a scrolled list.
   window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
 
-  if (route.kind === 'item' || route.kind === 'update') {
+  if (route.kind === 'item' || route.kind === 'update' || route.kind === 'source') {
     topbar.classList.add('on-profile');
     tabbar.style.display = 'none';
     tabLabel.textContent = '';
     backBtn.hidden = false;
     viewRoot.innerHTML = '<div class="spinner" aria-label="Loading"></div>';
-    const fn = route.kind === 'item' ? renderItem : renderUpdate;
+    const fn = route.kind === 'item' ? renderItem
+            : route.kind === 'update' ? renderUpdate
+            : renderSource;
     Promise.resolve(fn(viewRoot, route.id)).catch(err => {
       console.error(err);
       viewRoot.innerHTML = `<div class="empty">Failed to load.<small>${err.message}</small></div>`;

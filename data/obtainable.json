@@ -1,0 +1,121 @@
+{
+  "sources": {
+    "mining-laser-flora": {
+      "name": "Mining Laser on flora",
+      "detail": "Use the Mining Laser (multi-tool attachment) on trees, bushes, and planetary vegetation. The element yielded depends on the planet's biome: Carbon on most lush worlds, Oxygen on toxic, Di-hydrogen on frozen, and so on. Scan flora with your Analysis Visor to see the specific element each plant drops before harvesting."
+    },
+    "hazardous-flora": {
+      "name": "Destroying hazardous plants",
+      "detail": "On hostile biomes (toxic, radioactive, scorched, frozen, glitched) spiky defensive flora — knotty spines, bladed fronds, fleshy pods — can be shot or struck with the Mining Laser to release elements. Carbon on lush worlds, Oxygen on toxic, Sodium on radioactive, Di-hydrogen on frozen, and rarer elements on more extreme biomes. Watch out for the damage they deal back."
+    },
+    "surface-minerals": {
+      "name": "Surface mineral deposits",
+      "detail": "Rocks and mineral formations on a planet's surface. Use the Analysis Visor to highlight large tagged deposits (they show the element icon from a distance). Mine with the Mining Laser for small deposits, or the Terrain Manipulator on deep earth deposits for bulk yields."
+    },
+    "crystal-deposits": {
+      "name": "Crystal formations",
+      "detail": "Colored crystalline clusters that grow on planet surfaces or at cave entrances. Blue crystals drop Di-hydrogen, orange crystals drop Pyrite, and rare yellow/green crystal types drop catalytic elements. Mine with the Mining Laser or Terrain Manipulator."
+    },
+    "cave-deposits": {
+      "name": "Cave deposits",
+      "detail": "Dense mineral nodes found inside caves. Cobalt appears as dark blue clusters in almost every cave; Ionised Cobalt requires refining. Some planets hide Emeril, Indium, or Activated Copper formations deeper underground — use your scanner inside the cave to detect them."
+    },
+    "underwater-deposits": {
+      "name": "Underwater deposits",
+      "detail": "Ocean-floor mineral formations and anomalous aquatic plants on water planets. Equip the Aquajet Pack + Terrain Manipulator and dive. Main rewards: Chlorine, Salt, Kelp Sacs, Living Pearls from Humming Sacs, and rare Liquid Sun from abyssal ruins."
+    },
+    "asteroids-space": {
+      "name": "Asteroid mining (space)",
+      "detail": "Shoot asteroids with your starship's mining laser while flying through space. Grey asteroids yield Tritium in bulk, while gold, silver, and platinum asteroids appear in specific star systems. Excellent passive source while travelling between planets."
+    },
+    "atmosphere-harvester": {
+      "name": "Atmosphere Harvester",
+      "detail": "A base-built structure that slowly extracts gas from a planet's atmosphere. Biome determines output: Nitrogen (lush), Sulphurine (scorched), Radon (radioactive), Methane (gas giants). Requires power. Place several in parallel for serious yields, or queue to offline progression."
+    },
+    "refining": {
+      "name": "Refining",
+      "detail": "Process raw materials in a Portable, Medium, or Large Refiner. Each device accepts 1, 2, or 3 inputs respectively. Refiner recipes convert common raw materials into refined elements, fuels, and rare alloys. Search the Recipes tab → Refiner for all input combinations."
+    },
+    "cooking": {
+      "name": "Nutrient Processor",
+      "detail": "A specialized refiner for food. Combine flora, fauna products, and processed ingredients to cook dishes — many sell for high prices to trade terminals or double as crafting reagents for expedition goals."
+    },
+    "creature-harvest": {
+      "name": "Creature harvesting",
+      "detail": "Feed or bond with creatures to collect their milk, eggs, or excrement. Wild creatures drop basic yields; adopted companions drop rarer ones. Creature products feed into Cooking, Living Ship upgrades, and certain expedition tasks."
+    },
+    "sentinels-defeat": {
+      "name": "Defeating Sentinels",
+      "detail": "Kill Sentinel drones, Quads, and Walkers for their cores: Pugneum, Radiant Shards, Wiring Looms, Walker Brains. Crashed Sentinel ships on Dissonant planets drop ship cores and AI Valves; killing a Sentinel Capital Ship drops very rare tech."
+    },
+    "pirate-loot": {
+      "name": "Pirate freighter raids",
+      "detail": "Attack pirate freighters or intercept cargo pods in pirate-controlled systems. Rewards include Nanite Clusters, Contraband, Forged Passports, and seasonal pirate-exclusive cosmetics."
+    },
+    "expedition-rewards": {
+      "name": "Expeditions",
+      "detail": "Complete Expedition milestones for limited-time rewards — exclusive materials, ships, frigates, and cosmetics. Expeditions rotate every few months and export progress back to your main save on completion."
+    },
+    "twisted-worlds": {
+      "name": "Twisted / corrupted worlds",
+      "detail": "Dissonant, cursed, and Atlantid-infused planets from recent updates yield late-game materials: Cursed Dust, Void Mote, Atlantideum, Somnal Dust, Shattered Qualia. Usually requires specific equipment — Sentinel resistance, dream-wake tools, Atlas interaction."
+    },
+    "scrapping-tech": {
+      "name": "Scrapping technology",
+      "detail": "Dismantle starship, multi-tool, or exocraft technology at their corresponding terminals. The scrapper returns a fraction of the original cost plus Scrap Metal, Salvaged Data, and sometimes Nanite Clusters. Very reliable Nanite income."
+    },
+    "freighter-salvage": {
+      "name": "Crashed freighter salvage",
+      "detail": "Crashed freighter sites are marked on planet scans; each site has 4–6 buried Storage Crates and a central Salvaged Frigate Module cache. Excavate with the Terrain Manipulator. Large sites can give 5+ modules per run."
+    },
+    "farming": {
+      "name": "Hydroponic farming",
+      "detail": "Plant seeds in Hydroponic Trays (indoor) or biodomes on the surface. Seeds are sold at Galactic Trade Terminals and the Space Anomaly. Plants take real time to mature; returns scale hard with planted volume, making farming the most efficient mid-game economy."
+    },
+    "monolith-rewards": {
+      "name": "Monoliths & ancient sites",
+      "detail": "Interact with Monoliths, Plaques, Ruins, and Ancient Bones on planet surfaces. Correct dialogue picks give faction standing, language, and materials — sometimes including rare items and keys for deeper quests."
+    }
+  },
+  "byGroup": {
+    "Unrefined Organic Element":        ["mining-laser-flora", "hazardous-flora"],
+    "Refined Organic Element":          ["refining"],
+    "Concentrated Liquid Fuel":         ["refining", "mining-laser-flora", "hazardous-flora"],
+    "High Energy Substance":            ["crystal-deposits", "cave-deposits"],
+    "Neutron-Rich Fuel Element":        ["cave-deposits", "refining"],
+    "Metallic Mineral Extract":         ["surface-minerals"],
+    "Processed Metallic Minerals":      ["refining"],
+    "Charged Metallic Element":         ["surface-minerals", "refining"],
+    "Abundant Mineral":                 ["surface-minerals"],
+    "Unrefined Catalytic Element":      ["cave-deposits", "crystal-deposits"],
+    "Refined Catalytic Element":        ["refining"],
+    "Subterranean Mineral":             ["cave-deposits"],
+    "Processed Subterranean Mineral":   ["refining"],
+    "Aquatic Mineral Extract":          ["underwater-deposits"],
+    "Processed Aquatic Mineral":        ["refining"],
+    "Organic Compound":                 ["refining"],
+    "Refined Stellar Metal: Yellow":    ["refining", "asteroids-space"],
+    "Refined Stellar Metal: Red":       ["refining"],
+    "Refined Stellar Metal: Green":     ["refining"],
+    "Refined Stellar Metal: Blue":      ["refining"],
+    "Refined Stellar Metal: Purple":    ["refining"],
+    "Highly Refined Stellar Metal":     ["refining"],
+    "Localised Earth Element":          ["surface-minerals", "cave-deposits"],
+    "Harvested Substance":              ["creature-harvest"],
+    "Anomalous Material":               ["expedition-rewards", "twisted-worlds"],
+    "Valuable Asteroid Mineral":        ["asteroids-space"],
+    "Compressed Atmospheric Gas":       ["atmosphere-harvester"],
+    "Harvested Agricultural Substance": ["farming", "mining-laser-flora"],
+    "Junk":                             ["freighter-salvage", "pirate-loot"],
+    "Technological Currency":           ["scrapping-tech"],
+    "Salvaged Scrap":                   ["scrapping-tech"],
+    "Ashes of Despair":                 ["twisted-worlds"],
+    "Decayed Spacetime Remnant":        ["twisted-worlds"],
+    "Recessive Creature Genes":         ["creature-harvest"],
+    "Disharmonic Metal":                ["sentinels-defeat"],
+    "Essence of Atlantid":              ["twisted-worlds"],
+    "Soul Fragment":                    ["twisted-worlds"],
+    "Recycled Minerals":                ["refining", "scrapping-tech"]
+  },
+  "byItem": {}
+}

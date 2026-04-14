@@ -2,7 +2,7 @@
 // Game data itself is served from LocalStorage after first load, so it
 // doesn't need to live in the cache.
 
-const CACHE_NAME = 'nms-companion-v9';
+const CACHE_NAME = 'nms-companion-v10';
 
 const SHELL = [
   './',
@@ -19,9 +19,11 @@ const SHELL = [
   './js/views/item.js',
   './js/views/updates.js',
   './js/views/update.js',
+  './js/views/source.js',
   './icons/icon.svg',
   './data/icon-overrides.json',
   './data/updates.json',
+  './data/obtainable.json',
 ];
 
 self.addEventListener('install', event => {
