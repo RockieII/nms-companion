@@ -285,13 +285,13 @@ a.recipe-line { text-decoration: none; color: inherit; }
   gap: 10px;
   width: 100%;
 }
-.refiner-output { justify-self: start; min-width: 0; }
+.refiner-output { justify-self: end; min-width: 0; }
 .refiner-inputs {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  justify-self: end;
-  align-items: flex-end;
+  justify-self: start;
+  align-items: flex-start;
   min-width: 0;
 }
 .refiner-output .recipe-chip { max-width: 100%; }

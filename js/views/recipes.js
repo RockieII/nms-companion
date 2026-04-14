@@ -152,16 +152,16 @@ function buildRefinerRow({ r, out, ins }) {
   });
 
   const main = el('div', { class: 'refiner-main' }, [
-    // Left: output (prominent).
-    el('div', { class: 'refiner-output' }, [
-      chip(out, r.Output.Quantity, r.Output.Id, true),
-    ]),
-    // Center: arrow "made from".
-    el('span', { class: 'recipe-arrow' }, '←'),
-    // Right: inputs stacked vertically.
+    // Left: inputs stacked.
     el('div', { class: 'refiner-inputs' },
       ins.map((item, i) => chip(item, r.Inputs[i].Quantity, r.Inputs[i].Id))
     ),
+    // Center: arrow "becomes".
+    el('span', { class: 'recipe-arrow' }, '→'),
+    // Right: output (prominent).
+    el('div', { class: 'refiner-output' }, [
+      chip(out, r.Output.Quantity, r.Output.Id, true),
+    ]),
   ]);
   line.appendChild(main);
   line.appendChild(el('div', { class: 'recipe-meta' },
