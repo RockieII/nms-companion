@@ -83,12 +83,12 @@ async function renderRegularProfile(root, item) {
   ));
 
   // Obtainable — below Stats. Each source is a tappable row that opens a
-  // detail page explaining that source in depth.
+  // detail page explaining that source in depth (with item-specific note if any).
   if (item._kind === 'resources') {
     const sources = await getObtainable(item.Id, item.Group);
     if (sources.length > 0) {
       const body = document.createDocumentFragment();
-      for (const s of sources) body.appendChild(sourceRow(s));
+      for (const s of sources) body.appendChild(sourceRow(s, item.Id));
       root.appendChild(section({ title: 'Obtainable from' }, body));
     }
   }
@@ -214,15 +214,16 @@ function aggregateRow({ label, count, href }) {
   ]);
 }
 
-// Clickable Obtainable row — opens the source detail page.
-function sourceRow(source) {
-  return el('a', {
-    class: 'row aggregate-row',
-    href: `#source/${encodeURIComponent(source.id)}`,
-  }, [
+// Clickable Obtainable row — opens the source detail page, passing the item
+// id as a query so the detail page can show the item-specific note.
+function sourceRow(source, itemId) {
+  const href = `#source/${encodeURIComponent(source.id)}?item=${encodeURIComponent(itemId)}`;
+  // Prefer the item-specific note as the row subtitle, else truncate generic.
+  const subtitle = source.note ? truncate(source.note, 90) : truncate(source.detail, 90);
+  return el('a', { class: 'row aggregate-row', href }, [
     el('div', { class: 'row-body' }, [
       el('div', { class: 'row-title' }, source.name),
-      el('div', { class: 'row-sub' }, truncate(source.detail, 80)),
+      el('div', { class: 'row-sub' }, subtitle),
     ]),
     el('span', { class: 'row-chevron', html: '›' }),
   ]);

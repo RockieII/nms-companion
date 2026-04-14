@@ -75,18 +75,36 @@ async function getObtainableData() {
   return obtainable;
 }
 
+// Each entry is { sourceId, note? }. byItem wins when present, otherwise we
+// fall back to the group-level mapping. Notes are surfaced in the Obtainable
+// row subtitle and on the source detail page to explain how THIS item works
+// within the generic source mechanic.
 export async function getObtainable(itemId, group) {
   const data = await getObtainableData();
-  const ids = data.byItem?.[itemId] || data.byGroup?.[group] || [];
-  return ids
-    .map(id => data.sources[id] ? { id, ...data.sources[id] } : null)
+  const entries = data.byItem?.[itemId] || data.byGroup?.[group] || [];
+  return entries
+    .map(entry => {
+      const src = data.sources?.[entry.sourceId];
+      if (!src) return null;
+      return { id: entry.sourceId, ...src, note: entry.note || null };
+    })
     .filter(Boolean);
 }
 
+// Return the generic source definition; caller passes itemId separately when
+// they want to surface the per-item note on the source detail page.
 export async function getSource(sourceId) {
   const data = await getObtainableData();
   const s = data.sources?.[sourceId];
   return s ? { id: sourceId, ...s } : null;
+}
+
+export async function getSourceNoteForItem(sourceId, itemId) {
+  if (!itemId) return null;
+  const data = await getObtainableData();
+  const entries = data.byItem?.[itemId] || [];
+  const entry = entries.find(e => e.sourceId === sourceId);
+  return entry?.note || null;
 }
 
 // Icon overrides — Fandom-hosted URLs for items whose AssistantNMS CDN icon

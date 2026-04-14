@@ -35,7 +35,11 @@ function parseRoute(hash) {
     return { kind: 'update', id: decodeURIComponent(raw.slice(7)) };
   }
   if (raw.startsWith('source/')) {
-    return { kind: 'source', id: decodeURIComponent(raw.slice(7)) };
+    const after = raw.slice(7);
+    const [id, queryStr] = after.split('?');
+    const params = {};
+    if (queryStr) new URLSearchParams(queryStr).forEach((v, k) => { params[k] = v; });
+    return { kind: 'source', id: decodeURIComponent(id), params };
   }
   const [name, queryStr] = raw.split('?');
   if (TABS[name]) {
@@ -63,7 +67,9 @@ function render() {
     const fn = route.kind === 'item' ? renderItem
             : route.kind === 'update' ? renderUpdate
             : renderSource;
-    Promise.resolve(fn(viewRoot, route.id)).catch(err => {
+    // source view takes an extra params argument for item context
+    const extra = route.kind === 'source' ? route.params : undefined;
+    Promise.resolve(fn(viewRoot, route.id, extra)).catch(err => {
       console.error(err);
       viewRoot.innerHTML = `<div class="empty">Failed to load.<small>${err.message}</small></div>`;
     });
