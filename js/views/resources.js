@@ -71,7 +71,7 @@ function openResourceSheet(item) {
   openSheet(({ close }) => {
     const wrap = document.createDocumentFragment();
     wrap.appendChild(el('div', { class: 'sheet-head' }, [
-      imgOrPlaceholder(item.CdnUrl, { class: 'sheet-icon' }),
+      imgOrPlaceholder(item, { class: 'sheet-icon' }),
       el('div', {}, [
         el('h2', { class: 'sheet-title' }, item.Name),
         el('p',  { class: 'sheet-group' }, item.Group || ''),

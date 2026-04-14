@@ -20,18 +20,41 @@ export function el(tag, attrs = {}, children = []) {
   return node;
 }
 
-// Placeholder used when an icon 404s or is missing.
-// Small hex/crystal glyph tinted with the app accent color.
-export const ICON_PLACEHOLDER =
-  "data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3e%3crect width='64' height='64' rx='10' fill='%231c253d'/%3e%3cpath d='M32 14 L50 24 L50 44 L32 54 L14 44 L14 24 Z' fill='none' stroke='%23ffcc33' stroke-width='3' stroke-linejoin='round' opacity='.75'/%3e%3ccircle cx='32' cy='34' r='5' fill='%23ffcc33' opacity='.75'/%3e%3c/svg%3e";
+// Build a per-item placeholder: colored hexagon tile with the item's first
+// letter. Used when the CDN icon 404s or is missing — so Basalt looks like
+// a grey "B" tile, Carbon like a red "C", etc.
+function buildPlaceholder(item) {
+  const hex = (item?.Colour && /^[0-9A-Fa-f]{6}$/.test(item.Colour)) ? item.Colour : 'ffcc33';
+  const letter = (item?.Name || '?').trim().charAt(0).toUpperCase() || '?';
+  const textColor = isDark(hex) ? 'ffffff' : '1a1a1a';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+    <rect width="64" height="64" rx="10" fill="#1c253d"/>
+    <path d="M32 10 L54 22 L54 42 L32 54 L10 42 L10 22 Z" fill="#${hex}" opacity=".85"/>
+    <text x="32" y="40" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="26" font-weight="700" fill="#${textColor}">${letter}</text>
+  </svg>`;
+  return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+}
 
-export function imgOrPlaceholder(url, extraAttrs = {}) {
-  const src = url || ICON_PLACEHOLDER;
+function isDark(hex) {
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  // Perceived luminance — below ~140 is dark, use white text.
+  return (r * 299 + g * 587 + b * 114) / 1000 < 140;
+}
+
+// Render an <img> for an item. If item has no CdnUrl, or if the CDN 404s,
+// swap to a colored-initial placeholder derived from the item itself.
+export function imgOrPlaceholder(item, extraAttrs = {}) {
+  const placeholder = buildPlaceholder(item);
+  const src = item?.CdnUrl || placeholder;
+  // Attach onerror BEFORE src so the listener is wired when the browser
+  // resolves the resource (avoids a race on fast 404 responses).
   return el('img', {
+    onerror: (e) => { if (e.target.src !== placeholder) e.target.src = placeholder; },
     src,
     alt: '',
     loading: 'lazy',
-    onerror: (e) => { if (e.target.src !== ICON_PLACEHOLDER) e.target.src = ICON_PLACEHOLDER; },
     ...extraAttrs,
   });
 }
@@ -48,7 +71,7 @@ export function debounce(fn, ms = 150) {
 export function buildRow({ item, kind, subtitle, onOpen }) {
   const starred = isFavorite(kind, item.Id);
   const row = el('button', { class: 'row', type: 'button' }, [
-    imgOrPlaceholder(item.CdnUrl, { class: 'row-icon' }),
+    imgOrPlaceholder(item, { class: 'row-icon' }),
     el('div', { class: 'row-body' }, [
       el('div', { class: 'row-title' }, item.Name || item.Id),
       el('div', { class: 'row-sub' }, subtitle || item.Group || ''),
