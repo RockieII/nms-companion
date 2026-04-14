@@ -34,7 +34,15 @@ const EXCLUDE_REGEX = [
   /IconEchoes/i,
   /IconWorlds/i,
   /IconNextGen/i,
+  /Disambig/i,            // generic wiki UI
+  /Question_mark/i,
   /\.jpg$/i,              // icons are always .png; screenshots are .jpg
+];
+// Any URL from these hosts/paths is global Wiki UI, never an NMS asset.
+const EXCLUDE_URL_SUBSTRINGS = [
+  'ucp-internal-test-starter-commons',
+  'starter-',
+  'community-gaming',
 ];
 
 // Files MATCHING these are highly likely to be the item's primary icon.
@@ -59,8 +67,8 @@ function pickCandidate(pageImages, itemName) {
   const pool = preferred.length ? preferred : kept;
   if (pool.length === 0) return null;
   if (pool.length === 1) return pool[0];
-  // Tiebreak: filename containing a word from Name wins.
-  const words = NORMALIZE(itemName).split(/\W+/).filter(w => w.length >= 4);
+  // Tiebreak by name token. Include 3+ char tokens this time (catches "GAS", "OIL").
+  const words = NORMALIZE(itemName).split(/\W+/).filter(w => w.length >= 3);
   for (const w of words) {
     const hit = pool.find(f => NORMALIZE(f).includes(w));
     if (hit) return hit;
@@ -68,18 +76,32 @@ function pickCandidate(pageImages, itemName) {
   return null; // ambiguous — resolve via infobox fetch
 }
 
-// Extract first File: reference from the intro HTML (includes infobox).
+// Extract the icon file referenced inside the portable-infobox on the page.
+// Falls back to the first PREFER-matching image in the intro section.
 async function fromInfobox(pageTitle) {
   const url = `${WIKI_API}?action=parse&page=${encodeURIComponent(pageTitle)}&prop=text&section=0&format=json&redirects=1`;
   const res = await fetch(url, { headers: { 'User-Agent': 'nms-companion-sync/1.0' } });
   if (!res.ok) return null;
   const data = await res.json();
   const html = data?.parse?.text?.['*'] || '';
-  const matches = [...html.matchAll(/\/([A-Z][A-Z0-9_.\- ]+\.png)\//g)].map(m => m[1]);
+
+  // Prefer images *inside* <aside class="portable-infobox"> — that's the
+  // per-item icon block. Match lazily to avoid eating the whole document.
+  const infobox = html.match(/<aside[^>]*class="[^"]*portable-infobox[^"]*"[^>]*>([\s\S]*?)<\/aside>/i);
+  const searchIn = infobox ? infobox[1] : html;
+
+  const matches = [...searchIn.matchAll(/\/([A-Za-z][A-Za-z0-9_.\- ]+\.png)\//g)].map(m => m[1]);
+  const urlHits = [...searchIn.matchAll(/https?:\/\/[^"\s]+/g)].map(m => m[0]);
   for (const f of matches) {
-    if (!EXCLUDE_REGEX.some(re => re.test(f)) && PREFER_REGEX.some(re => re.test(f))) {
-      return f;
-    }
+    if (EXCLUDE_REGEX.some(re => re.test(f))) continue;
+    // Skip files whose URL sits in a cross-wiki path.
+    const fromBadUrl = urlHits.some(u => u.includes(`/${f}/`) && EXCLUDE_URL_SUBSTRINGS.some(s => u.includes(s)));
+    if (fromBadUrl) continue;
+    if (PREFER_REGEX.some(re => re.test(f))) return f;
+  }
+  // Last resort: first non-excluded png inside infobox, even without PREFER match.
+  for (const f of matches) {
+    if (!EXCLUDE_REGEX.some(re => re.test(f))) return f;
   }
   return null;
 }
@@ -224,6 +246,8 @@ async function main() {
   for (const [filename, items] of Object.entries(fileToItems)) {
     const url = fileUrls[filename];
     if (!url) continue;
+    // Final sanity: reject URLs that clearly come from cross-wiki global UI.
+    if (EXCLUDE_URL_SUBSTRINGS.some(s => url.includes(s))) continue;
     for (const it of items) overrides[it.Id] = url;
   }
 
