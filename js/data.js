@@ -121,9 +121,11 @@ async function fetchJson(url) {
   return res.json();
 }
 
-// For any item that has an Icon but no CdnUrl, build the CDN url from Icon.
-// (Technology.json and Others.json don't ship CdnUrl; the asset is still on cdn.nmsassistant.com.)
-const CDN_BASE = 'https://cdn.nmsassistant.com';
+// datav2 ships an empty CdnUrl but a per-item `Icon` filename (e.g. "FUEL1.png").
+// The upstream site serves the real art at nomansskyrecipes.com/images/items/<Icon>
+// (verified 100% hit rate across all item files). The old cdn.nmsassistant.com base
+// is dead (404s) — that was the cause of the placeholder tiles.
+const CDN_BASE = 'https://nomansskyrecipes.com/images/items';
 
 // Obtainable — source definitions + per-group and per-item mappings. Drives
 // the "Obtainable from" section on raw-material profiles and the #source/<id>
@@ -192,7 +194,9 @@ async function getIconOverrides() {
 function normalizeItems(list, overrides = {}) {
   if (!Array.isArray(list)) return list;
   for (const it of list) {
-    if (!it.CdnUrl && it.Icon) it.CdnUrl = `${CDN_BASE}/${it.Icon}`;
+    // Always derive CdnUrl from Icon (not cached) so changing CDN_BASE takes
+    // effect immediately, even for users with a previously-cached CdnUrl.
+    if (it.Icon) it.CdnUrl = `${CDN_BASE}/${it.Icon}`;
     if (overrides[it.Id]) it.CdnUrl = overrides[it.Id];
     // datav2 renamed the abbreviation field Abbrev -> Symbol. Keep Abbrev
     // populated so search + the profile "Symbol" stat keep working.
@@ -204,7 +208,9 @@ function normalizeItems(list, overrides = {}) {
 // Only the fields the app reads. Caching the full datav2 files for all ~15 data
 // sources is ~10.5MB (over the ~5MB localStorage quota); slimming to these keeps
 // it ~2.5MB. Covers both items and recipe files (Inputs/Output/Time/Operation).
-const SLIM_FIELDS = ['Id', 'Name', 'Group', 'CdnUrl', 'Icon', 'Symbol', 'Abbrev', 'Colour',
+// CdnUrl is intentionally omitted — it's derived from Icon in normalizeItems on
+// every load, so we cache only Icon (smaller, and lets CDN_BASE change freely).
+const SLIM_FIELDS = ['Id', 'Name', 'Group', 'Icon', 'Symbol', 'Abbrev', 'Colour',
   'BaseValueUnits', 'CurrencyType', 'MaxStackSize', 'Description', 'RequiredItems',
   'Inputs', 'Output', 'Time', 'Operation'];
 function slim(list) {

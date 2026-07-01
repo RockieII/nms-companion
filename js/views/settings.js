@@ -1,9 +1,31 @@
 import { refresh, lastRefreshedAt, getCacheStats } from '../data.js';
+import { THEMES, getTheme, applyTheme } from '../theme.js';
 import { toast } from '../app.js';
 import { el } from './ui.js';
 
 export async function renderSettings(root) {
   root.innerHTML = '';
+
+  // Appearance — theme picker.
+  const activeTheme = getTheme();
+  const themeList = el('div', { class: 'theme-list' },
+    THEMES.map(t => {
+      const opt = el('button', { class: 'theme-option' + (t.id === activeTheme ? ' active' : '') }, [
+        el('span', { class: 'theme-swatch', style: `background:${t.color}` }),
+        el('span', { class: 'theme-name' }, t.label),
+        t.id === activeTheme ? el('span', { class: 'theme-check', html: '✓' }) : null,
+      ].filter(Boolean));
+      opt.addEventListener('click', () => {
+        applyTheme(t.id);
+        toast(`Theme: ${t.label}`);
+        renderSettings(root);
+      });
+      return opt;
+    }));
+  root.appendChild(el('div', { class: 'settings-section' }, [
+    el('h2', {}, 'Appearance'),
+    themeList,
+  ]));
 
   const stampEl = el('span', {}, formatStamp(lastRefreshedAt()));
   const stats = getCacheStats();

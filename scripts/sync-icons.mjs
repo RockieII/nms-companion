@@ -177,7 +177,7 @@ async function main() {
     const items = await fetchJson(`${DATA_BASE}/${name}.json`);
     for (const it of items) {
       if (!it.CdnUrl && it.Icon) {
-        it.CdnUrl = `https://cdn.nmsassistant.com/${it.Icon}`;
+        it.CdnUrl = `https://nomansskyrecipes.com/images/items/${it.Icon}`;
       }
       allItems.push(it);
     }

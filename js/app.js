@@ -6,6 +6,9 @@ import { renderFavorites } from './views/favorites.js';
 import { renderSettings }  from './views/settings.js';
 import { renderItem }      from './views/item.js';
 import { renderSource }    from './views/source.js';
+import { initTheme }       from './theme.js';
+
+initTheme();
 
 const viewRoot = document.getElementById('view');
 const tabLabel = document.getElementById('tab-label');
