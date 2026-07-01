@@ -197,7 +197,7 @@ async function paintCrafting(listEl, state) {
     const count = p.RequiredItems.length;
     frag.appendChild(buildRow({
       item: p,
-      kind: 'product',
+      kind: 'products',
       subtitle: `${p.Group} · ${count} ingredient${count === 1 ? '' : 's'}`,
     }));
   }

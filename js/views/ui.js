@@ -100,6 +100,26 @@ export function uniqueGroups(items) {
   return [...set];
 }
 
+// Horizontally-scrollable pill row for a top-level type filter.
+// `chips` = [{ value, label }]; value '' conventionally means "All".
+export function buildTypeChips(chips, onSelect, selected = '') {
+  const row = el('div', { class: 'type-chips' });
+  const buttons = [];
+  for (const c of chips) {
+    const b = el('button', {
+      class: 'type-chip' + (c.value === selected ? ' active' : ''),
+      'data-val': c.value,
+    }, c.label);
+    b.addEventListener('click', () => {
+      buttons.forEach(x => x.classList.toggle('active', x === b));
+      onSelect(c.value);
+    });
+    buttons.push(b);
+    row.appendChild(b);
+  }
+  return row;
+}
+
 export function buildCategorySelect(groups, onChange, selected = '') {
   const select = el('select', { 'aria-label': 'Filter by category' });
   select.appendChild(el('option', { value: '' }, `All categories (${groups.length})`));

@@ -15,7 +15,7 @@ const topbar   = document.querySelector('.topbar');
 const backBtn  = document.getElementById('back-btn');
 
 const TABS = {
-  resources: { label: 'Resources', render: renderResources },
+  resources: { label: 'Items', render: renderResources },
   recipes:   { label: 'Recipes',   render: renderRecipes },
   updates:   { label: 'Updates',   render: renderUpdates },
   favorites: { label: 'Favorites', render: renderFavorites },

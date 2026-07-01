@@ -31,9 +31,9 @@ export async function renderItem(root, id) {
 async function renderRegularProfile(root, item) {
   root.innerHTML = '';
 
-  // _kind comes from data.js LOOKUP_KEYS (plural: 'resources', 'products', …).
-  // Favorites use the singular namespace ('resource', 'product').
-  const favKind = item._kind === 'resources' ? 'resource' : 'product';
+  // Favorites are namespaced by the item's _kind (plural: 'resources',
+  // 'products', 'technology', …) so every item type can be favorited.
+  const favKind = item._kind;
   const starred = isFavorite(favKind, item.Id);
   const star = el('button', {
     class: 'profile-star' + (starred ? ' on' : ''),

@@ -6,7 +6,8 @@
 
 import { writeFile, readFile } from 'node:fs/promises';
 
-const DATA_BASE = 'https://cdn.jsdelivr.net/gh/bradhave94/nms@main/src/data';
+// Kept in sync with js/data.js BASE — bradhave94/nms moved JSON to src/datav2.
+const DATA_BASE = 'https://cdn.jsdelivr.net/gh/bradhave94/nms@main/src/datav2';
 const DATA_FILES = [
   'RawMaterials', 'Products', 'ConstructedTechnology',
   'Technology', 'Curiosities', 'Others', 'Trade',

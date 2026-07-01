@@ -1,7 +1,10 @@
 // Data layer — the single source of truth for fetching + caching game data.
 // Views must not call fetch directly; they read through the functions below.
 
-const BASE = 'https://cdn.jsdelivr.net/gh/bradhave94/nms@main/src/data';
+// Upstream community dataset. NOTE: bradhave94/nms moved its JSON from
+// `src/data` to `src/datav2` (~Apr 2026); the old path 404s. Keep this pinned
+// at datav2. If items ever stop loading, re-check the repo's data folder path.
+const BASE = 'https://cdn.jsdelivr.net/gh/bradhave94/nms@main/src/datav2';
 
 const ENDPOINTS = {
   resources:   `${BASE}/RawMaterials.json`,
@@ -16,18 +19,33 @@ const ENDPOINTS = {
 
 const UPDATES_URL = './data/updates.json';
 
+// Version suffixes bumped when switching the source to datav2 so existing
+// users' stale v1/v2 caches are abandoned and the app refetches from the new
+// endpoints on next load. Favorites are intentionally NOT bumped (preserved).
 const STORAGE = {
-  resources:   'nms:resources:v2',
-  products:    'nms:products:v2',
-  refinery:    'nms:refinery:v2',
-  conTech:     'nms:conTech:v1',
-  technology:  'nms:technology:v1',
-  curiosities: 'nms:curiosities:v1',
-  others:      'nms:others:v1',
-  trade:       'nms:trade:v1',
+  resources:   'nms:resources:v3',
+  products:    'nms:products:v3',
+  refinery:    'nms:refinery:v3',
+  conTech:     'nms:conTech:v2',
+  technology:  'nms:technology:v2',
+  curiosities: 'nms:curiosities:v2',
+  others:      'nms:others:v2',
+  trade:       'nms:trade:v2',
   updates:     'nms:updates:v1',
-  stamp:       'nms:lastRefresh:v2',
+  stamp:       'nms:lastRefresh:v3',
   favorites:   'nms:favorites:v1',
+};
+
+// Human labels per item kind — used by the Items browser type filter and the
+// Favorites groupings. Keys match LOOKUP_KEYS.
+export const KIND_LABELS = {
+  resources:   'Raw Materials',
+  products:    'Products',
+  technology:  'Technology',
+  conTech:     'Constructed Tech',
+  curiosities: 'Curiosities',
+  trade:       'Trade',
+  others:      'Other',
 };
 
 // Keys whose data is used to resolve recipe ingredient IDs.
@@ -129,6 +147,9 @@ function normalizeItems(list, overrides = {}) {
   for (const it of list) {
     if (!it.CdnUrl && it.Icon) it.CdnUrl = `${CDN_BASE}/${it.Icon}`;
     if (overrides[it.Id]) it.CdnUrl = overrides[it.Id];
+    // datav2 renamed the abbreviation field Abbrev -> Symbol. Keep Abbrev
+    // populated so search + the profile "Symbol" stat keep working.
+    if (!it.Abbrev && it.Symbol) it.Abbrev = it.Symbol;
   }
   return list;
 }
@@ -153,6 +174,26 @@ async function ensure(key) {
 export async function getResources() {
   const all = await ensure('resources');
   return all.filter(r => !RESOURCE_EXCLUDED_GROUPS.has(r.Group));
+}
+
+// Every browsable item across all 7 data files, each tagged with its `_kind`
+// (matches KIND_LABELS / LOOKUP_KEYS). Deduped by Id, with the currency/standing
+// "Reward Item" raw-material group filtered out. Refiner recipes are NOT items
+// and are excluded — they live in the Recipes tab.
+export async function getAllItems() {
+  const lists = await Promise.all(LOOKUP_KEYS.map(k => ensure(k)));
+  const seen = new Set();
+  const out = [];
+  for (let i = 0; i < LOOKUP_KEYS.length; i++) {
+    const kind = LOOKUP_KEYS[i];
+    for (const item of lists[i]) {
+      if (kind === 'resources' && RESOURCE_EXCLUDED_GROUPS.has(item.Group)) continue;
+      if (seen.has(item.Id)) continue;
+      seen.add(item.Id);
+      out.push({ ...item, _kind: kind });
+    }
+  }
+  return out;
 }
 
 export async function getCraftingRecipes() {
@@ -195,6 +236,21 @@ export async function refresh() {
 
 export function lastRefreshedAt() {
   return localStorage.getItem(STORAGE.stamp);
+}
+
+// Cached item counts for the Settings screen. Reads the current STORAGE keys so
+// it can't drift out of sync with the version suffixes above.
+export function getCacheStats() {
+  const count = key => {
+    const v = loadFromStorage(key);
+    return Array.isArray(v) ? v.length : 0;
+  };
+  return {
+    resources: count(STORAGE.resources),
+    products:  count(STORAGE.products),
+    refinery:  count(STORAGE.refinery),
+    updates:   count(STORAGE.updates),
+  };
 }
 
 // Build a lookup from every known Id to its item, across all 7 data files
@@ -275,9 +331,21 @@ export async function getUpdates() {
   }
 }
 
-// Favorites — stored as [{ type, id }]. Not network-dependent.
+// Favorites — stored as [{ type, id }] where `type` is an item _kind
+// ('resources' | 'products' | 'technology' | …) or 'refiner'. Not network-dependent.
+// Legacy migration: early versions used singular 'resource'/'product'; map them
+// to the plural _kind namespace so old favorites keep matching.
+const LEGACY_FAV_TYPES = { resource: 'resources', product: 'products' };
 function loadFavs() {
-  return loadFromStorage(STORAGE.favorites) || [];
+  const raw = loadFromStorage(STORAGE.favorites) || [];
+  let changed = false;
+  const favs = raw.map(f => {
+    const mapped = LEGACY_FAV_TYPES[f.type];
+    if (mapped) { changed = true; return { ...f, type: mapped }; }
+    return f;
+  });
+  if (changed) saveFavs(favs);
+  return favs;
 }
 function saveFavs(favs) {
   localStorage.setItem(STORAGE.favorites, JSON.stringify(favs));

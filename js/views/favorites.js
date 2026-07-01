@@ -1,5 +1,9 @@
-import { listFavorites, getItemById, getRefinerRecipes } from '../data.js';
+import { listFavorites, getItemById, getRefinerRecipes, KIND_LABELS } from '../data.js';
 import { buildRow, el } from './ui.js';
+
+// Order favorites groups appear in. Any type not listed falls to the end.
+const GROUP_ORDER = ['resources', 'products', 'technology', 'conTech', 'curiosities', 'trade', 'others', 'refiner'];
+const GROUP_LABELS = { ...KIND_LABELS, refiner: 'Refiner recipes' };
 
 export async function renderFavorites(root) {
   root.innerHTML = '';
@@ -8,51 +12,45 @@ export async function renderFavorites(root) {
   if (favs.length === 0) {
     root.appendChild(el('div', { class: 'empty' }, [
       'No favorites yet.',
-      el('small', {}, 'Tap the ☆ on any resource or recipe to save it here.'),
+      el('small', {}, 'Tap the ☆ on any item or recipe to save it here.'),
     ]));
     return;
   }
 
-  const groups = {
-    resource: el('div', { class: 'list' }),
-    product:  el('div', { class: 'list' }),
-    refiner:  el('div', { class: 'list' }),
-  };
+  const byType = {};
+  for (const f of favs) (byType[f.type] ||= []).push(f);
 
-  for (const f of favs) {
-    if (f.type === 'refiner') {
-      const recipes = await getRefinerRecipes();
-      const r = recipes.find(x => x.Id === f.id);
-      if (!r) continue;
-      const out = await getItemById(r.Output.Id);
-      groups.refiner.appendChild(buildRow({
-        item: { Id: r.Id, Name: r.Operation || out?.Name || r.Id, CdnUrl: out?.CdnUrl, Colour: out?.Colour, Group: 'Refiner recipe' },
-        kind: 'refiner',
-        subtitle: `→ ${r.Output.Quantity}× ${out?.Name || '?'}`,
-      }));
-    } else {
-      const item = await getItemById(f.id);
-      if (!item) continue;
-      groups[f.type].appendChild(buildRow({
-        item,
-        kind: f.type,
-        subtitle: item.Group,
-      }));
+  // Preserve GROUP_ORDER, then append any unknown types.
+  const types = [
+    ...GROUP_ORDER.filter(t => byType[t]),
+    ...Object.keys(byType).filter(t => !GROUP_ORDER.includes(t)),
+  ];
+
+  const refinerRecipes = byType.refiner ? await getRefinerRecipes() : [];
+
+  for (const type of types) {
+    const listEl = el('div', { class: 'list' });
+
+    for (const f of byType[type]) {
+      if (type === 'refiner') {
+        const r = refinerRecipes.find(x => x.Id === f.id);
+        if (!r) continue;
+        const out = await getItemById(r.Output.Id);
+        listEl.appendChild(buildRow({
+          item: { Id: r.Id, Name: r.Operation || out?.Name || r.Id, CdnUrl: out?.CdnUrl, Colour: out?.Colour, Group: 'Refiner recipe' },
+          kind: 'refiner',
+          subtitle: `→ ${r.Output.Quantity}× ${out?.Name || '?'}`,
+        }));
+      } else {
+        const item = await getItemById(f.id);
+        if (!item) continue;
+        listEl.appendChild(buildRow({ item, kind: type, subtitle: item.Group }));
+      }
     }
-  }
 
-  const HEADER_STYLE = 'margin:8px 4px;color:var(--accent);font-size:12px;text-transform:uppercase;letter-spacing:1px;';
-
-  if (groups.resource.children.length) {
-    root.appendChild(el('h3', { style: HEADER_STYLE }, 'Resources'));
-    root.appendChild(groups.resource);
-  }
-  if (groups.product.children.length) {
-    root.appendChild(el('h3', { style: HEADER_STYLE.replace('8px', '14px') }, 'Crafting'));
-    root.appendChild(groups.product);
-  }
-  if (groups.refiner.children.length) {
-    root.appendChild(el('h3', { style: HEADER_STYLE.replace('8px', '14px') }, 'Refiner'));
-    root.appendChild(groups.refiner);
+    if (listEl.children.length) {
+      root.appendChild(el('h3', { class: 'group-title' }, GROUP_LABELS[type] || type));
+      root.appendChild(listEl);
+    }
   }
 }

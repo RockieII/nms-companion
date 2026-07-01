@@ -1,4 +1,4 @@
-import { refresh, lastRefreshedAt } from '../data.js';
+import { refresh, lastRefreshedAt, getCacheStats } from '../data.js';
 import { toast } from '../app.js';
 import { el } from './ui.js';
 
@@ -6,10 +6,11 @@ export async function renderSettings(root) {
   root.innerHTML = '';
 
   const stampEl = el('span', {}, formatStamp(lastRefreshedAt()));
-  const resourcesCount = jsonCount('nms:resources:v2');
-  const productsCount  = jsonCount('nms:products:v2');
-  const refinerCount   = jsonCount('nms:refinery:v2');
-  const updatesCount   = jsonCount('nms:updates:v1');
+  const stats = getCacheStats();
+  const resourcesCount = stats.resources;
+  const productsCount  = stats.products;
+  const refinerCount   = stats.refinery;
+  const updatesCount   = stats.updates;
 
   const refreshBtn = el('button', { class: 'btn' }, 'Refresh game data');
   refreshBtn.addEventListener('click', async () => {
@@ -74,16 +75,5 @@ function formatStamp(iso) {
     return d.toLocaleString();
   } catch {
     return iso;
-  }
-}
-
-function jsonCount(key) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return 0;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.length : 0;
-  } catch {
-    return 0;
   }
 }
