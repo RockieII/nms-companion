@@ -473,3 +473,19 @@ export function toggleFavorite(type, id) {
   saveFavs(favs);
   return idx < 0;
 }
+
+// Recently-viewed item ids (most-recent first, capped). Powers the Home hub.
+const RECENT_KEY = 'nms:recent:v1';
+const RECENT_CAP = 15;
+
+export function getRecent() {
+  return loadFromStorage(RECENT_KEY) || [];
+}
+
+export function pushRecent(id) {
+  if (!id) return;
+  let list = getRecent().filter(x => x !== id);
+  list.unshift(id);
+  if (list.length > RECENT_CAP) list = list.slice(0, RECENT_CAP);
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch { /* ignore */ }
+}

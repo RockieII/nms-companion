@@ -1,14 +1,13 @@
-// Items browser — a two-level browse. The tab opens to a grid of super-category
-// cards (renderCategoryGrid); tapping one drills into a scoped list of that
-// category's items (renderCategoryList). A search box on the grid searches
-// across every category. Routes: #resources → grid, #resources?cat=<id> → list.
+// Browse — a two-level item browse. The tab opens to a grid of super-category
+// cards (renderCategoryGrid) with an Items|Recipes toggle and a global search;
+// tapping a card drills into a scoped list (renderCategoryList).
+// Routes: #browse → grid, #browse?cat=<id> → list.
 
-import { getItemsForKinds, getAllItems, KIND_LABELS, SUPER_CATEGORIES } from '../data.js';
+import { getItemsForKinds, KIND_LABELS, SUPER_CATEGORIES } from '../data.js';
 import { buildRow, buildCategorySelect, buildTypeChips, uniqueGroups, debounce, el, norm } from './ui.js';
+import { searchField, searchInputEl, mountGlobalSearch } from './search.js';
 
 const PAGE = 200;
-
-const SEARCH_SVG = '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>';
 
 // Inline icons for the six super-category cards (line/solid, matching the app).
 const CATEGORY_ICONS = {
@@ -20,33 +19,25 @@ const CATEGORY_ICONS = {
   other: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z"/></svg>',
 };
 
-function searchField(input) {
-  return el('div', { class: 'searchbar' }, [
-    el('div', { class: 'search-field' }, [
-      el('span', { class: 'search-icon', html: SEARCH_SVG }),
-      input,
-    ]),
-  ]);
-}
-
 export async function renderResources(root, params = {}) {
   const cat = params.cat && SUPER_CATEGORIES.find(c => c.id === params.cat);
   if (cat) return renderCategoryList(root, cat);
   return renderCategoryGrid(root);
 }
 
-// --- Level 1: category grid + global search ---
+// --- Level 1: Items|Recipes toggle + global search + category grid ---
 function renderCategoryGrid(root) {
   root.innerHTML = '';
-  const state = { query: '' };
 
-  const searchInput = el('input', {
-    type: 'search', placeholder: 'Search all items…',
-    autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false',
-  });
+  const toggle = el('div', { class: 'subtabs browse-toggle' }, [
+    el('button', { class: 'subtab active' }, 'Items'),
+    el('a', { class: 'subtab', href: '#recipes' }, 'Recipes'),
+  ]);
+
+  const searchInput = searchInputEl('Search all items…');
   const grid = el('div', { class: 'cat-grid' });
   for (const c of SUPER_CATEGORIES) {
-    grid.appendChild(el('a', { class: 'cat-card', href: `#resources?cat=${c.id}` }, [
+    grid.appendChild(el('a', { class: 'cat-card', href: `#browse?cat=${c.id}` }, [
       el('div', { class: 'cat-card-icon', html: CATEGORY_ICONS[c.icon] || '' }),
       el('div', { class: 'cat-card-label' }, c.label),
     ]));
@@ -54,44 +45,12 @@ function renderCategoryGrid(root) {
   const results = el('div', { class: 'list' });
   results.style.display = 'none';
 
+  root.appendChild(toggle);
   root.appendChild(searchField(searchInput));
   root.appendChild(grid);
   root.appendChild(results);
 
-  let allItems = null;
-  const runSearch = debounce(async () => {
-    const q = state.query;
-    if (!q) { grid.style.display = ''; results.style.display = 'none'; results.innerHTML = ''; return; }
-    grid.style.display = 'none';
-    results.style.display = '';
-    if (!allItems) {
-      results.innerHTML = '<div class="spinner" aria-label="Loading"></div>';
-      allItems = await getAllItems();
-    }
-    if (state.query !== q) return; // superseded by a newer keystroke
-    const list = allItems.filter(it =>
-      norm(it.Name).includes(q) || norm(it.Abbrev).includes(q) || norm(it.Group).includes(q));
-    results.innerHTML = '';
-    if (list.length === 0) {
-      results.appendChild(el('div', { class: 'empty' }, 'No matches.'));
-      return;
-    }
-    const frag = document.createDocumentFragment();
-    for (const item of list.slice(0, PAGE)) {
-      frag.appendChild(buildRow({
-        item, kind: item._kind,
-        subtitle: item.Group,
-        badge: KIND_LABELS[item._kind] || '',
-      }));
-    }
-    results.appendChild(frag);
-    if (list.length > PAGE) {
-      results.appendChild(el('div', { class: 'empty' },
-        `Showing first ${PAGE} of ${list.length}. Keep typing to narrow.`));
-    }
-  }, 140);
-
-  searchInput.addEventListener('input', () => { state.query = norm(searchInput.value); runSearch(); });
+  mountGlobalSearch({ input: searchInput, results, other: grid });
 }
 
 // --- Level 2: one super-category's list, filterable by kind + group ---
@@ -103,17 +62,14 @@ async function renderCategoryList(root, cat) {
   const state = { query: '', kind: '', group: '' };
 
   const header = el('div', { class: 'cat-header' }, [
-    el('a', { class: 'cat-back', href: '#resources' }, [
+    el('a', { class: 'cat-back', href: '#browse' }, [
       el('span', { class: 'cat-back-arrow', html: '‹' }),
       'Categories',
     ]),
     el('span', { class: 'cat-heading' }, cat.label),
   ]);
 
-  const searchInput = el('input', {
-    type: 'search', placeholder: `Search ${items.length} ${cat.label.toLowerCase()}…`,
-    autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false',
-  });
+  const searchInput = searchInputEl(`Search ${items.length} ${cat.label.toLowerCase()}…`);
 
   // Level-2 kind chips — only when the super-category spans more than one kind.
   const kindsPresent = cat.kinds.filter(k => items.some(it => it._kind === k));

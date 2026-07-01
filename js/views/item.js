@@ -7,6 +7,7 @@ import {
   getObtainable,
   isFavorite,
   toggleFavorite,
+  pushRecent,
 } from '../data.js';
 import { imgOrPlaceholder, el } from './ui.js';
 
@@ -24,6 +25,7 @@ export async function renderItem(root, id) {
   if (item._kind === 'refiner' || item._kind === 'cooking') {
     await renderRecipeProfile(root, item, item._kind);
   } else {
+    pushRecent(item.Id); // track real items for the Home hub
     await renderRegularProfile(root, item);
   }
 }
@@ -55,6 +57,15 @@ async function renderRegularProfile(root, item) {
     ]),
     star,
   ]));
+
+  // "Cost to craft" — only for items something actually produces.
+  const producedByAny = await getRecipesProducing(item.Id);
+  if (producedByAny.length > 0) {
+    root.appendChild(el('a', {
+      class: 'btn calc-cta',
+      href: `#calc?target=${encodeURIComponent(item.Id)}`,
+    }, 'Cost to craft ›'));
+  }
 
   if (item.Description) {
     root.appendChild(section({ title: 'Description' },

@@ -6,6 +6,9 @@ import { renderFavorites } from './views/favorites.js';
 import { renderSettings }  from './views/settings.js';
 import { renderItem }      from './views/item.js';
 import { renderSource }    from './views/source.js';
+import { renderHome }       from './views/home.js';
+import { renderCalculator } from './views/calculator.js';
+import { renderMore }       from './views/more.js';
 import { initTheme }       from './theme.js';
 
 initTheme();
@@ -18,19 +21,29 @@ const topbar   = document.querySelector('.topbar');
 const backBtn  = document.getElementById('back-btn');
 
 const TABS = {
-  resources: { label: 'Items', render: renderResources },
-  recipes:   { label: 'Recipes',   render: renderRecipes },
-  updates:   { label: 'Updates',   render: renderUpdates },
-  favorites: { label: 'Favorites', render: renderFavorites },
-  settings:  { label: 'Settings',  render: renderSettings },
+  home:     { label: 'Home',       render: renderHome },
+  browse:   { label: 'Browse',     render: renderResources },
+  calc:     { label: 'Calculator', render: renderCalculator },
+  projects: { label: 'Projects',   render: renderFavorites },
+  more:     { label: 'More',       render: renderMore },
+  // Secondary routes (reached from Browse / More), not in the tab bar:
+  recipes:  { label: 'Recipes',    render: renderRecipes },
+  updates:  { label: 'Updates',    render: renderUpdates },
+  settings: { label: 'Settings',   render: renderSettings },
 };
 
-let currentRoute = { kind: 'tab', name: 'resources', params: {} };
-let lastTab = 'resources';
+// Which bottom-bar tab is highlighted for a given route name.
+const ROUTE_TAB = {
+  home: 'home', browse: 'browse', calc: 'calc', projects: 'projects', more: 'more',
+  recipes: 'browse', updates: 'more', settings: 'more',
+};
+
+let currentRoute = { kind: 'tab', name: 'home', params: {} };
+let lastTab = 'home';
 
 function parseRoute(hash) {
   const raw = (hash || '').replace(/^#/, '');
-  if (!raw) return { kind: 'tab', name: 'resources', params: {} };
+  if (!raw) return { kind: 'tab', name: 'home', params: {} };
   if (raw.startsWith('item/')) {
     return { kind: 'item', id: decodeURIComponent(raw.slice(5)) };
   }
@@ -50,7 +63,7 @@ function parseRoute(hash) {
     if (queryStr) new URLSearchParams(queryStr).forEach((v, k) => { params[k] = v; });
     return { kind: 'tab', name, params };
   }
-  return { kind: 'tab', name: 'resources', params: {} };
+  return { kind: 'tab', name: 'home', params: {} };
 }
 
 function render() {
@@ -80,14 +93,15 @@ function render() {
   }
 
   // tab route
-  lastTab = route.name;
+  const activeTab = ROUTE_TAB[route.name] || route.name;
+  lastTab = activeTab;
   topbar.classList.remove('on-profile');
   tabbar.style.display = '';
   backBtn.hidden = true;
   const tab = TABS[route.name];
   tabLabel.textContent = tab.label;
   document.querySelectorAll('.tab').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.tab === route.name);
+    btn.classList.toggle('active', btn.dataset.tab === activeTab);
   });
   viewRoot.innerHTML = '<div class="spinner" aria-label="Loading"></div>';
   Promise.resolve(tab.render(viewRoot, route.params)).catch(err => {
@@ -122,7 +136,7 @@ window.addEventListener('hashchange', render);
 render();
 
 window.addEventListener('nms:favorites-changed', () => {
-  if (currentRoute.kind === 'tab' && currentRoute.name === 'favorites') render();
+  if (currentRoute.kind === 'tab' && (currentRoute.name === 'projects' || currentRoute.name === 'home')) render();
 });
 
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {

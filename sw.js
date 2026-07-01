@@ -2,7 +2,7 @@
 // Game data itself is served from LocalStorage after first load, so it
 // doesn't need to live in the cache.
 
-const CACHE_NAME = 'nms-companion-v15';
+const CACHE_NAME = 'nms-companion-v16';
 
 const SHELL = [
   './',
@@ -12,7 +12,12 @@ const SHELL = [
   './js/app.js',
   './js/data.js',
   './js/theme.js',
+  './js/craft.js',
   './js/views/ui.js',
+  './js/views/search.js',
+  './js/views/home.js',
+  './js/views/calculator.js',
+  './js/views/more.js',
   './js/views/resources.js',
   './js/views/recipes.js',
   './js/views/favorites.js',
