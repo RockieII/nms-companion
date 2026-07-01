@@ -11,6 +11,8 @@ const DATA_BASE = 'https://cdn.jsdelivr.net/gh/bradhave94/nms@main/src/datav2';
 const DATA_FILES = [
   'RawMaterials', 'Products', 'ConstructedTechnology',
   'Technology', 'Curiosities', 'Others', 'Trade',
+  'Upgrades', 'TechnologyModule', 'Buildings', 'Food', 'Fish',
+  'Starships', 'Exocraft', 'Corvette', 'EggModifiers',
 ];
 const WIKI_API = 'https://nomanssky.fandom.com/api.php';
 const WIKI_FILE_BASE = 'https://static.wikia.nocookie.net/nomanssky_gamepedia';

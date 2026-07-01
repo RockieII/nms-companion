@@ -1,11 +1,18 @@
-import { getRefinerRecipes, getCraftingRecipes, getItemById } from '../data.js';
+import { getRefinerRecipes, getCookingRecipes, getCraftingRecipes, getItemById } from '../data.js';
 import { buildRow, buildCategorySelect, uniqueGroups, debounce, el, norm, imgOrPlaceholder } from './ui.js';
+
+// Recipe modes that are "input(s) → output" (refiner + cooking share layout).
+const PROCESS_RECIPES = {
+  refiner: { get: getRefinerRecipes, empty: 'No matching refiner recipes.' },
+  cooking: { get: getCookingRecipes, empty: 'No matching cooking recipes.' },
+};
 
 export async function renderRecipes(root, params = {}) {
   root.innerHTML = '';
 
+  const MODES = ['refiner', 'crafting', 'cooking'];
   const state = {
-    mode: params.mode === 'crafting' ? 'crafting' : 'refiner',
+    mode: MODES.includes(params.mode) ? params.mode : 'refiner',
     query: '',
     group: '',
     produces: params.produces || '',
@@ -35,10 +42,9 @@ export async function renderRecipes(root, params = {}) {
     ]));
   }
 
-  const subtabs = el('div', { class: 'subtabs' }, [
-    el('button', { class: 'subtab' + (state.mode === 'refiner' ? ' active' : ''), 'data-sub': 'refiner' }, 'Refiner'),
-    el('button', { class: 'subtab' + (state.mode === 'crafting' ? ' active' : ''), 'data-sub': 'crafting' }, 'Crafting'),
-  ]);
+  const subtabs = el('div', { class: 'subtabs' },
+    [['refiner', 'Refiner'], ['crafting', 'Crafting'], ['cooking', 'Cooking']].map(([sub, label]) =>
+      el('button', { class: 'subtab' + (state.mode === sub ? ' active' : ''), 'data-sub': sub }, label)));
   const searchInput = el('input', {
     type: 'search',
     placeholder: 'Search by ingredient or output…',
@@ -58,8 +64,8 @@ export async function renderRecipes(root, params = {}) {
 
   async function rebuildFilter() {
     filterHost.innerHTML = '';
-    const groups = state.mode === 'refiner'
-      ? await refinerOutputGroups()
+    const groups = PROCESS_RECIPES[state.mode]
+      ? await outputGroups(PROCESS_RECIPES[state.mode].get)
       : uniqueGroups(await getCraftingRecipes());
     filterHost.appendChild(buildCategorySelect(groups, (value) => {
       state.group = value;
@@ -71,12 +77,9 @@ export async function renderRecipes(root, params = {}) {
     btn.addEventListener('click', async () => {
       state.mode = btn.dataset.sub;
       state.group = '';
-      // Clear the produces/uses filter when switching modes (keeps UX simple).
-      if ((state.mode === 'refiner' && btn.dataset.sub !== 'refiner') ||
-          (state.mode === 'crafting' && btn.dataset.sub !== 'crafting')) {
-        state.produces = '';
-        state.uses = '';
-      }
+      // Switching modes clears any produces/uses filter (keeps UX simple).
+      state.produces = '';
+      state.uses = '';
       subtabs.querySelectorAll('.subtab').forEach(b =>
         b.classList.toggle('active', b === btn));
       await rebuildFilter();
@@ -87,7 +90,7 @@ export async function renderRecipes(root, params = {}) {
 
   const repaint = debounce(async () => {
     listEl.innerHTML = '<div class="spinner"></div>';
-    if (state.mode === 'refiner') await paintRefiner(listEl, state);
+    if (PROCESS_RECIPES[state.mode]) await paintProcess(listEl, state, PROCESS_RECIPES[state.mode]);
     else await paintCrafting(listEl, state);
   }, 140);
 
@@ -101,8 +104,8 @@ export async function renderRecipes(root, params = {}) {
   repaint();
 }
 
-async function refinerOutputGroups() {
-  const recipes = await getRefinerRecipes();
+async function outputGroups(getRecipes) {
+  const recipes = await getRecipes();
   const set = new Set();
   for (const r of recipes) {
     const out = await getItemById(r.Output.Id);
@@ -111,8 +114,9 @@ async function refinerOutputGroups() {
   return [...set];
 }
 
-async function paintRefiner(listEl, state) {
-  const recipes = await getRefinerRecipes();
+// Renders an input(s) → output recipe list (refiner or cooking).
+async function paintProcess(listEl, state, { get, empty }) {
+  const recipes = await get();
 
   const enriched = [];
   for (const r of recipes) {
@@ -130,7 +134,7 @@ async function paintRefiner(listEl, state) {
 
   listEl.innerHTML = '';
   if (filtered.length === 0) {
-    listEl.appendChild(el('div', { class: 'empty' }, 'No matching refiner recipes.'));
+    listEl.appendChild(el('div', { class: 'empty' }, empty));
     return;
   }
 

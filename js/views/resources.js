@@ -1,56 +1,140 @@
-// Items browser — every item across all 7 data files (raw materials, products,
-// technology, constructed tech, curiosities, trade, other), filterable by type
-// and category. Tapping a row opens its profile (item.js).
+// Items browser — a two-level browse. The tab opens to a grid of super-category
+// cards (renderCategoryGrid); tapping one drills into a scoped list of that
+// category's items (renderCategoryList). A search box on the grid searches
+// across every category. Routes: #resources → grid, #resources?cat=<id> → list.
 
-import { getAllItems, KIND_LABELS } from '../data.js';
+import { getItemsForKinds, getAllItems, KIND_LABELS, SUPER_CATEGORIES } from '../data.js';
 import { buildRow, buildCategorySelect, buildTypeChips, uniqueGroups, debounce, el, norm } from './ui.js';
 
 const PAGE = 200;
 
-export async function renderResources(root) {
-  const items = await getAllItems();
+const SEARCH_SVG = '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>';
+
+// Inline icons for the six super-category cards (line/solid, matching the app).
+const CATEGORY_ICONS = {
+  materials: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2 3 7v10l9 5 9-5V7z" opacity=".3"/><path fill="currentColor" d="M12 2 3 7l9 5 9-5z"/></svg>',
+  tech: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M9 3v2H7a2 2 0 0 0-2 2v2H3v2h2v2H3v2h2v2a2 2 0 0 0 2 2h2v2h2v-2h2v2h2v-2h2a2 2 0 0 0 2-2v-2h2v-2h-2v-2h2V9h-2V7a2 2 0 0 0-2-2h-2V3h-2v2h-2V3H9zm0 6h6v6H9z"/></svg>',
+  building: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M4 21V11l7-4v2l7-4v16h-4v-5h-3v5H4z" opacity=".9"/><path fill="currentColor" d="M2 21h20v2H2z"/></svg>',
+  cooking: '<svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" d="M8 3c0 1-1 1-1 2s1 1 1 2M12 3c0 1-1 1-1 2s1 1 1 2M16 3c0 1-1 1-1 2s1 1 1 2"/><path fill="currentColor" d="M3 10a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1 5 5 0 0 1-3 4.58V17a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-2.42A5 5 0 0 1 3 10z"/></svg>',
+  vehicles: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2c3 2.2 5 5.4 5 9.5L15.5 13h-7L7 11.5C7 7.4 9 4.2 12 2zm0 5.2a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2zM7 15l-2 4 4-1.2M17 15l2 4-4-1.2M10 19.2h4L12 22z"/></svg>',
+  other: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z"/></svg>',
+};
+
+function searchField(input) {
+  return el('div', { class: 'searchbar' }, [
+    el('div', { class: 'search-field' }, [
+      el('span', { class: 'search-icon', html: SEARCH_SVG }),
+      input,
+    ]),
+  ]);
+}
+
+export async function renderResources(root, params = {}) {
+  const cat = params.cat && SUPER_CATEGORIES.find(c => c.id === params.cat);
+  if (cat) return renderCategoryList(root, cat);
+  return renderCategoryGrid(root);
+}
+
+// --- Level 1: category grid + global search ---
+function renderCategoryGrid(root) {
+  root.innerHTML = '';
+  const state = { query: '' };
+
+  const searchInput = el('input', {
+    type: 'search', placeholder: 'Search all items…',
+    autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false',
+  });
+  const grid = el('div', { class: 'cat-grid' });
+  for (const c of SUPER_CATEGORIES) {
+    grid.appendChild(el('a', { class: 'cat-card', href: `#resources?cat=${c.id}` }, [
+      el('div', { class: 'cat-card-icon', html: CATEGORY_ICONS[c.icon] || '' }),
+      el('div', { class: 'cat-card-label' }, c.label),
+    ]));
+  }
+  const results = el('div', { class: 'list' });
+  results.style.display = 'none';
+
+  root.appendChild(searchField(searchInput));
+  root.appendChild(grid);
+  root.appendChild(results);
+
+  let allItems = null;
+  const runSearch = debounce(async () => {
+    const q = state.query;
+    if (!q) { grid.style.display = ''; results.style.display = 'none'; results.innerHTML = ''; return; }
+    grid.style.display = 'none';
+    results.style.display = '';
+    if (!allItems) {
+      results.innerHTML = '<div class="spinner" aria-label="Loading"></div>';
+      allItems = await getAllItems();
+    }
+    if (state.query !== q) return; // superseded by a newer keystroke
+    const list = allItems.filter(it =>
+      norm(it.Name).includes(q) || norm(it.Abbrev).includes(q) || norm(it.Group).includes(q));
+    results.innerHTML = '';
+    if (list.length === 0) {
+      results.appendChild(el('div', { class: 'empty' }, 'No matches.'));
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    for (const item of list.slice(0, PAGE)) {
+      frag.appendChild(buildRow({
+        item, kind: item._kind,
+        subtitle: item.Group,
+        badge: KIND_LABELS[item._kind] || '',
+      }));
+    }
+    results.appendChild(frag);
+    if (list.length > PAGE) {
+      results.appendChild(el('div', { class: 'empty' },
+        `Showing first ${PAGE} of ${list.length}. Keep typing to narrow.`));
+    }
+  }, 140);
+
+  searchInput.addEventListener('input', () => { state.query = norm(searchInput.value); runSearch(); });
+}
+
+// --- Level 2: one super-category's list, filterable by kind + group ---
+async function renderCategoryList(root, cat) {
+  root.innerHTML = '<div class="spinner" aria-label="Loading"></div>';
+  const items = await getItemsForKinds(cat.kinds);
   root.innerHTML = '';
 
   const state = { query: '', kind: '', group: '' };
 
-  const listEl = el('div', { class: 'list' });
-  const searchInput = el('input', {
-    type: 'search',
-    placeholder: `Search ${items.length} items…`,
-    autocomplete: 'off',
-    autocapitalize: 'off',
-    spellcheck: 'false',
-  });
-  const searchBar = el('div', { class: 'searchbar' }, [
-    el('div', { class: 'search-field' }, [
-      el('span', { class: 'search-icon', html: '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>' }),
-      searchInput,
+  const header = el('div', { class: 'cat-header' }, [
+    el('a', { class: 'cat-back', href: '#resources' }, [
+      el('span', { class: 'cat-back-arrow', html: '‹' }),
+      'Categories',
     ]),
+    el('span', { class: 'cat-heading' }, cat.label),
   ]);
 
-  // Type chips: All + one per kind that actually has items.
-  const kindsPresent = Object.keys(KIND_LABELS).filter(k => items.some(it => it._kind === k));
-  const chips = [{ value: '', label: 'All' }, ...kindsPresent.map(k => ({ value: k, label: KIND_LABELS[k] }))];
-  const chipRow = buildTypeChips(chips, (val) => {
-    state.kind = val;
-    state.group = '';
-    rebuildGroups();
-    paint();
+  const searchInput = el('input', {
+    type: 'search', placeholder: `Search ${items.length} ${cat.label.toLowerCase()}…`,
+    autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false',
   });
 
-  const groupHost = el('div');
+  // Level-2 kind chips — only when the super-category spans more than one kind.
+  const kindsPresent = cat.kinds.filter(k => items.some(it => it._kind === k));
+  const chipRow = kindsPresent.length > 1
+    ? buildTypeChips(
+        [{ value: '', label: 'All' }, ...kindsPresent.map(k => ({ value: k, label: KIND_LABELS[k] }))],
+        (val) => { state.kind = val; state.group = ''; rebuildGroups(); paint(); })
+    : null;
 
-  root.appendChild(searchBar);
-  root.appendChild(chipRow);
+  const groupHost = el('div');
+  const listEl = el('div', { class: 'list' });
+
+  root.appendChild(header);
+  root.appendChild(searchField(searchInput));
+  if (chipRow) root.appendChild(chipRow);
   root.appendChild(groupHost);
   root.appendChild(listEl);
 
-  // The category select only makes sense scoped to a single type (across all
-  // types there'd be 100+ groups). Shown once a type chip is active.
   function rebuildGroups() {
     groupHost.innerHTML = '';
-    if (!state.kind) return;
-    const pool = items.filter(it => it._kind === state.kind);
+    const pool = state.kind ? items.filter(it => it._kind === state.kind) : items;
     const groups = uniqueGroups(pool);
     if (groups.length <= 1) return;
     groupHost.appendChild(buildCategorySelect(groups, (value) => {
@@ -65,10 +149,7 @@ export async function renderResources(root) {
     if (state.kind)  list = list.filter(it => it._kind === state.kind);
     if (state.group) list = list.filter(it => it.Group === state.group);
     if (q) list = list.filter(it =>
-      norm(it.Name).includes(q) ||
-      norm(it.Abbrev).includes(q) ||
-      norm(it.Group).includes(q)
-    );
+      norm(it.Name).includes(q) || norm(it.Abbrev).includes(q) || norm(it.Group).includes(q));
 
     listEl.innerHTML = '';
     if (list.length === 0) {
@@ -77,11 +158,7 @@ export async function renderResources(root) {
     }
     const frag = document.createDocumentFragment();
     for (const item of list.slice(0, PAGE)) {
-      frag.appendChild(buildRow({
-        item,
-        kind: item._kind,
-        subtitle: item.Group,
-      }));
+      frag.appendChild(buildRow({ item, kind: item._kind, subtitle: item.Group }));
     }
     listEl.appendChild(frag);
     if (list.length > PAGE) {
@@ -90,11 +167,9 @@ export async function renderResources(root) {
     }
   }
 
-  const filter = debounce(() => {
-    state.query = norm(searchInput.value);
-    paint();
-  }, 120);
-
+  const filter = debounce(() => { state.query = norm(searchInput.value); paint(); }, 120);
   searchInput.addEventListener('input', filter);
+
+  rebuildGroups();
   paint();
 }

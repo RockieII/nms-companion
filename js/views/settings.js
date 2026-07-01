@@ -7,10 +7,6 @@ export async function renderSettings(root) {
 
   const stampEl = el('span', {}, formatStamp(lastRefreshedAt()));
   const stats = getCacheStats();
-  const resourcesCount = stats.resources;
-  const productsCount  = stats.products;
-  const refinerCount   = stats.refinery;
-  const updatesCount   = stats.updates;
 
   const refreshBtn = el('button', { class: 'btn' }, 'Refresh game data');
   refreshBtn.addEventListener('click', async () => {
@@ -30,10 +26,11 @@ export async function renderSettings(root) {
 
   root.appendChild(el('div', { class: 'settings-section' }, [
     el('h2', {}, 'Data'),
-    el('div', { class: 'settings-row' }, [el('span', {}, 'Resources'), el('span', {}, String(resourcesCount))]),
-    el('div', { class: 'settings-row' }, [el('span', {}, 'Crafting recipes'), el('span', {}, String(productsCount))]),
-    el('div', { class: 'settings-row' }, [el('span', {}, 'Refiner recipes'),  el('span', {}, String(refinerCount))]),
-    el('div', { class: 'settings-row' }, [el('span', {}, 'Steam updates'),    el('span', {}, String(updatesCount))]),
+    el('div', { class: 'settings-row' }, [el('span', {}, 'Items cached'),     el('span', {}, String(stats.items))]),
+    el('div', { class: 'settings-row' }, [el('span', {}, 'Crafting recipes'), el('span', {}, String(stats.products))]),
+    el('div', { class: 'settings-row' }, [el('span', {}, 'Refiner recipes'),  el('span', {}, String(stats.refinery))]),
+    el('div', { class: 'settings-row' }, [el('span', {}, 'Cooking recipes'),  el('span', {}, String(stats.nutrient))]),
+    el('div', { class: 'settings-row' }, [el('span', {}, 'Steam updates'),    el('span', {}, String(stats.updates))]),
     el('div', { class: 'settings-row' }, [el('span', {}, 'Last refreshed'),   stampEl]),
     el('div', { style: 'margin-top:12px;' }, [refreshBtn]),
   ]));

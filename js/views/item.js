@@ -21,8 +21,8 @@ export async function renderItem(root, id) {
     ]));
     return;
   }
-  if (item._kind === 'refiner') {
-    await renderRefinerProfile(root, item);
+  if (item._kind === 'refiner' || item._kind === 'cooking') {
+    await renderRecipeProfile(root, item, item._kind);
   } else {
     await renderRegularProfile(root, item);
   }
@@ -93,49 +93,50 @@ async function renderRegularProfile(root, item) {
     }
   }
 
-  // Made by — refiner-only aggregation.
+  // Made by — refiner + cooking recipes that produce this item.
   const producedBy = await getRecipesProducing(item.Id);
-  const producedByRefiner = producedBy.filter(e => e.type === 'refiner');
-  if (producedByRefiner.length > 0) {
-    root.appendChild(section({ title: 'Made by' },
-      aggregateRow({
-        label: 'Refiner recipes',
-        count: producedByRefiner.length,
-        href: `#recipes?mode=refiner&produces=${encodeURIComponent(item.Id)}`,
-      })
-    ));
+  const madeByRows = [
+    aggregate(producedBy, 'refiner', 'Refiner recipes', `#recipes?mode=refiner&produces=${encodeURIComponent(item.Id)}`),
+    aggregate(producedBy, 'cooking', 'Cooking recipes', `#recipes?mode=cooking&produces=${encodeURIComponent(item.Id)}`),
+  ].filter(Boolean);
+  if (madeByRows.length > 0) {
+    const body = document.createDocumentFragment();
+    madeByRows.forEach(r => body.appendChild(r));
+    root.appendChild(section({ title: 'Made by' }, body));
   }
 
-  // Used in — aggregated by type. Max two rows, so no collapsible.
+  // Used in — refiner + crafting + cooking recipes that consume this item.
   const usedIn = await getRecipesUsing(item.Id);
-  const usedRefiner = usedIn.filter(e => e.type === 'refiner');
-  const usedCrafting = usedIn.filter(e => e.type === 'product');
-  if (usedRefiner.length + usedCrafting.length > 0) {
+  const usedRows = [
+    aggregate(usedIn, 'refiner', 'Refiner recipes', `#recipes?mode=refiner&uses=${encodeURIComponent(item.Id)}`),
+    aggregate(usedIn, 'product', 'Crafting recipes', `#recipes?mode=crafting&uses=${encodeURIComponent(item.Id)}`),
+    aggregate(usedIn, 'cooking', 'Cooking recipes', `#recipes?mode=cooking&uses=${encodeURIComponent(item.Id)}`),
+  ].filter(Boolean);
+  if (usedRows.length > 0) {
     const body = document.createDocumentFragment();
-    if (usedRefiner.length > 0) body.appendChild(aggregateRow({
-      label: 'Refiner recipes',
-      count: usedRefiner.length,
-      href: `#recipes?mode=refiner&uses=${encodeURIComponent(item.Id)}`,
-    }));
-    if (usedCrafting.length > 0) body.appendChild(aggregateRow({
-      label: 'Crafting recipes',
-      count: usedCrafting.length,
-      href: `#recipes?mode=crafting&uses=${encodeURIComponent(item.Id)}`,
-    }));
+    usedRows.forEach(r => body.appendChild(r));
     root.appendChild(section({ title: 'Used in' }, body));
   }
 }
 
-async function renderRefinerProfile(root, recipe) {
+// Build one aggregate row for recipes of a given type, or null if none.
+function aggregate(entries, type, label, href) {
+  const count = entries.filter(e => e.type === type).length;
+  return count > 0 ? aggregateRow({ label, count, href }) : null;
+}
+
+async function renderRecipeProfile(root, recipe, kind = 'refiner') {
   root.innerHTML = '';
   const out = await getItemById(recipe.Output?.Id);
   const ins = await Promise.all((recipe.Inputs || []).map(i => getItemById(i.Id)));
+  const kindLabel = kind === 'cooking' ? 'Cooking recipe' : 'Refiner recipe';
+  const fallbackTitle = kind === 'cooking' ? `Cook → ${out?.Name || recipe.Output?.Id}` : `Refine → ${out?.Name || recipe.Output?.Id}`;
 
   root.appendChild(el('div', { class: 'profile-head' }, [
     imgOrPlaceholder(out, { class: 'profile-icon' }),
     el('div', { class: 'profile-head-text' }, [
-      el('h1', { class: 'profile-title' }, recipe.Operation || `Refine → ${out?.Name || recipe.Output?.Id}`),
-      el('p', { class: 'profile-group' }, `Refiner recipe · ${recipe.Time}s`),
+      el('h1', { class: 'profile-title' }, recipe.Operation || fallbackTitle),
+      el('p', { class: 'profile-group' }, `${kindLabel} · ${recipe.Time}s`),
     ]),
   ]));
 

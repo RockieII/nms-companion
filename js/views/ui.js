@@ -62,9 +62,10 @@ export function debounce(fn, ms = 150) {
 }
 
 // Build a list row rendered as a link to the item's profile page.
-// `kind` ('resource'|'product'|'refiner') controls the star's favorite namespace.
-// `linkId` overrides which id the row links to (defaults to item.Id).
-export function buildRow({ item, kind, subtitle, linkId }) {
+// `kind` controls the star's favorite namespace. `linkId` overrides the link id
+// (defaults to item.Id). `badge` renders a small label chip next to the title
+// (used by cross-category search to show each hit's kind).
+export function buildRow({ item, kind, subtitle, linkId, badge }) {
   const starred = isFavorite(kind, item.Id);
   const href = `#item/${encodeURIComponent(linkId || item.Id)}`;
   const star = el('span', {
@@ -83,7 +84,10 @@ export function buildRow({ item, kind, subtitle, linkId }) {
   return el('a', { class: 'row', href }, [
     imgOrPlaceholder(item, { class: 'row-icon' }),
     el('div', { class: 'row-body' }, [
-      el('div', { class: 'row-title' }, item.Name || item.Id),
+      el('div', { class: 'row-title-line' }, [
+        el('div', { class: 'row-title' }, item.Name || item.Id),
+        badge ? el('span', { class: 'kind-badge' }, badge) : null,
+      ]),
       el('div', { class: 'row-sub' }, subtitle || item.Group || ''),
     ]),
     star,

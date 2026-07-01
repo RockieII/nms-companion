@@ -10,11 +10,21 @@ const ENDPOINTS = {
   resources:   `${BASE}/RawMaterials.json`,
   products:    `${BASE}/Products.json`,
   refinery:    `${BASE}/Refinery.json`,
+  nutrient:    `${BASE}/NutrientProcessor.json`,
   conTech:     `${BASE}/ConstructedTechnology.json`,
   technology:  `${BASE}/Technology.json`,
   curiosities: `${BASE}/Curiosities.json`,
   others:      `${BASE}/Others.json`,
   trade:       `${BASE}/Trade.json`,
+  upgrades:    `${BASE}/Upgrades.json`,
+  techModule:  `${BASE}/TechnologyModule.json`,
+  buildings:   `${BASE}/Buildings.json`,
+  food:        `${BASE}/Food.json`,
+  fish:        `${BASE}/Fish.json`,
+  starships:   `${BASE}/Starships.json`,
+  exocraft:    `${BASE}/Exocraft.json`,
+  corvette:    `${BASE}/Corvette.json`,
+  eggModifiers:`${BASE}/EggModifiers.json`,
 };
 
 const UPDATES_URL = './data/updates.json';
@@ -26,11 +36,21 @@ const STORAGE = {
   resources:   'nms:resources:v3',
   products:    'nms:products:v3',
   refinery:    'nms:refinery:v3',
+  nutrient:    'nms:nutrient:v1',
   conTech:     'nms:conTech:v2',
   technology:  'nms:technology:v2',
   curiosities: 'nms:curiosities:v2',
   others:      'nms:others:v2',
   trade:       'nms:trade:v2',
+  upgrades:    'nms:upgrades:v1',
+  techModule:  'nms:techModule:v1',
+  buildings:   'nms:buildings:v1',
+  food:        'nms:food:v1',
+  fish:        'nms:fish:v1',
+  starships:   'nms:starships:v1',
+  exocraft:    'nms:exocraft:v1',
+  corvette:    'nms:corvette:v1',
+  eggModifiers:'nms:eggModifiers:v1',
   updates:     'nms:updates:v1',
   stamp:       'nms:lastRefresh:v3',
   favorites:   'nms:favorites:v1',
@@ -41,22 +61,49 @@ const STORAGE = {
 export const KIND_LABELS = {
   resources:   'Raw Materials',
   products:    'Products',
+  trade:       'Trade',
   technology:  'Technology',
   conTech:     'Constructed Tech',
-  curiosities: 'Curiosities',
-  trade:       'Trade',
+  upgrades:    'Upgrades',
+  techModule:  'Tech Modules',
+  buildings:   'Buildings',
+  food:        'Food',
+  fish:        'Fish',
+  starships:   'Starships',
+  exocraft:    'Exocraft',
+  corvette:    'Corvette',
   others:      'Other',
+  curiosities: 'Curiosities',
+  eggModifiers:'Egg Modifiers',
 };
 
-// Keys whose data is used to resolve recipe ingredient IDs.
-const LOOKUP_KEYS = ['resources', 'products', 'conTech', 'technology', 'curiosities', 'others', 'trade'];
+// Every item file, in browse order. Used to resolve recipe ingredient IDs
+// (getItemById), for the global Items list, and as the union of all kinds.
+const LOOKUP_KEYS = [
+  'resources', 'products', 'trade',
+  'technology', 'conTech', 'upgrades', 'techModule',
+  'buildings', 'food', 'fish',
+  'starships', 'exocraft', 'corvette',
+  'others', 'curiosities', 'eggModifiers',
+];
+
+// Level-1 browse grid → level-2 kinds. Drives the Items category grid and the
+// scoped list's type chips. `icon` maps to an inline SVG in the items view.
+export const SUPER_CATEGORIES = [
+  { id: 'materials', label: 'Materials',  icon: 'materials', kinds: ['resources', 'products', 'trade'] },
+  { id: 'tech',      label: 'Technology', icon: 'tech',      kinds: ['technology', 'conTech', 'upgrades', 'techModule'] },
+  { id: 'building',  label: 'Building',   icon: 'building',  kinds: ['buildings'] },
+  { id: 'cooking',   label: 'Cooking',    icon: 'cooking',   kinds: ['food', 'fish'] },
+  { id: 'vehicles',  label: 'Vehicles',   icon: 'vehicles',  kinds: ['starships', 'exocraft', 'corvette'] },
+  { id: 'other',     label: 'Other',      icon: 'other',     kinds: ['others', 'curiosities', 'eggModifiers'] },
+];
 
 // Raw Material groups that aren't real resources (faction standing, currency tokens).
 const RESOURCE_EXCLUDED_GROUPS = new Set(['Reward Item']);
 
 const inMemory = {};
 let idIndex = null;
-let recipesByInput = null;   // id -> [{type:'refiner'|'product', recipe}]
+let recipesByInput = null;   // id -> [{type:'refiner'|'cooking'|'product', recipe}]
 let recipesByOutput = null;  // id -> [{type, recipe}]
 
 function loadFromStorage(key) {
@@ -154,6 +201,41 @@ function normalizeItems(list, overrides = {}) {
   return list;
 }
 
+// Only the fields the app reads. Caching the full datav2 files for all ~15 data
+// sources is ~10.5MB (over the ~5MB localStorage quota); slimming to these keeps
+// it ~2.5MB. Covers both items and recipe files (Inputs/Output/Time/Operation).
+const SLIM_FIELDS = ['Id', 'Name', 'Group', 'CdnUrl', 'Icon', 'Symbol', 'Abbrev', 'Colour',
+  'BaseValueUnits', 'CurrencyType', 'MaxStackSize', 'Description', 'RequiredItems',
+  'Inputs', 'Output', 'Time', 'Operation'];
+function slim(list) {
+  if (!Array.isArray(list)) return list;
+  return list.map(o => {
+    const n = {};
+    for (const k of SLIM_FIELDS) if (o[k] !== undefined) n[k] = o[k];
+    return n;
+  });
+}
+
+// Quota-safe write. On QuotaExceededError (or private mode) we keep the data in
+// memory for the session and just skip persisting it.
+function persist(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (e) {
+    console.warn('nms: cache write skipped for', key, e?.name || e);
+    return false;
+  }
+}
+
+function stampNow() {
+  try {
+    if (!localStorage.getItem(STORAGE.stamp)) {
+      localStorage.setItem(STORAGE.stamp, new Date().toISOString());
+    }
+  } catch { /* ignore */ }
+}
+
 async function ensure(key) {
   if (inMemory[key]) return inMemory[key];
   const overrides = await getIconOverrides();
@@ -163,10 +245,8 @@ async function ensure(key) {
     return inMemory[key];
   }
   const data = normalizeItems(await fetchJson(ENDPOINTS[key]), overrides);
-  localStorage.setItem(STORAGE[key], JSON.stringify(data));
-  if (!localStorage.getItem(STORAGE.stamp)) {
-    localStorage.setItem(STORAGE.stamp, new Date().toISOString());
-  }
+  persist(STORAGE[key], slim(data));
+  stampNow();
   inMemory[key] = data;
   return data;
 }
@@ -176,16 +256,14 @@ export async function getResources() {
   return all.filter(r => !RESOURCE_EXCLUDED_GROUPS.has(r.Group));
 }
 
-// Every browsable item across all 7 data files, each tagged with its `_kind`
-// (matches KIND_LABELS / LOOKUP_KEYS). Deduped by Id, with the currency/standing
-// "Reward Item" raw-material group filtered out. Refiner recipes are NOT items
-// and are excluded — they live in the Recipes tab.
-export async function getAllItems() {
-  const lists = await Promise.all(LOOKUP_KEYS.map(k => ensure(k)));
+// Merge several item kinds into one `_kind`-tagged, deduped list. The
+// currency/standing "Reward Item" raw-material group is filtered out. Recipes
+// are NOT items — they live in the Recipes tab.
+function mergeKinds(kinds, lists) {
   const seen = new Set();
   const out = [];
-  for (let i = 0; i < LOOKUP_KEYS.length; i++) {
-    const kind = LOOKUP_KEYS[i];
+  for (let i = 0; i < kinds.length; i++) {
+    const kind = kinds[i];
     for (const item of lists[i]) {
       if (kind === 'resources' && RESOURCE_EXCLUDED_GROUPS.has(item.Group)) continue;
       if (seen.has(item.Id)) continue;
@@ -196,12 +274,29 @@ export async function getAllItems() {
   return out;
 }
 
+// Items for a subset of kinds — used by the Items category grid so opening a
+// super-category loads only its files (not all ~15).
+export async function getItemsForKinds(kinds) {
+  const lists = await Promise.all(kinds.map(k => ensure(k)));
+  return mergeKinds(kinds, lists);
+}
+
+// Every browsable item across all data files. Loads everything, so it's only
+// used by the global (cross-category) search.
+export async function getAllItems() {
+  return getItemsForKinds(LOOKUP_KEYS);
+}
+
 export async function getCraftingRecipes() {
   return ensure('products');
 }
 
 export async function getRefinerRecipes() {
   return ensure('refinery');
+}
+
+export async function getCookingRecipes() {
+  return ensure('nutrient');
 }
 
 export async function refresh() {
@@ -211,7 +306,7 @@ export async function refresh() {
   for (const key of Object.keys(ENDPOINTS)) {
     try {
       const data = normalizeItems(await fetchJson(ENDPOINTS[key]), overrides);
-      localStorage.setItem(STORAGE[key], JSON.stringify(data));
+      persist(STORAGE[key], slim(data));
       inMemory[key] = data;
     } catch (e) {
       errors.push({ key, message: e.message });
@@ -222,14 +317,14 @@ export async function refresh() {
   recipesByOutput = null;
   try {
     const upd = await fetchJson(UPDATES_URL);
-    localStorage.setItem(STORAGE.updates, JSON.stringify(upd));
+    persist(STORAGE.updates, upd);
     inMemory.updates = upd;
   } catch (e) {
     errors.push({ key: 'updates', message: e.message });
   }
   const timestamp = new Date().toISOString();
   if (errors.length === 0) {
-    localStorage.setItem(STORAGE.stamp, timestamp);
+    try { localStorage.setItem(STORAGE.stamp, timestamp); } catch { /* ignore */ }
   }
   return { ok: errors.length === 0, timestamp, errors };
 }
@@ -245,10 +340,13 @@ export function getCacheStats() {
     const v = loadFromStorage(key);
     return Array.isArray(v) ? v.length : 0;
   };
+  const items = LOOKUP_KEYS.reduce((sum, k) => sum + count(STORAGE[k]), 0);
   return {
+    items,
     resources: count(STORAGE.resources),
     products:  count(STORAGE.products),
     refinery:  count(STORAGE.refinery),
+    nutrient:  count(STORAGE.nutrient),
     updates:   count(STORAGE.updates),
   };
 }
@@ -265,10 +363,9 @@ export async function getItemById(id) {
         idIndex[item.Id] = { ...item, _kind: kind };
       }
     }
-    const refinery = await ensure('refinery');
-    for (const r of refinery) {
-      idIndex[r.Id] = { ...r, _kind: 'refiner' };
-    }
+    const [refinery, nutrient] = await Promise.all([ensure('refinery'), ensure('nutrient')]);
+    for (const r of refinery) idIndex[r.Id] = { ...r, _kind: 'refiner' };
+    for (const r of nutrient) idIndex[r.Id] = { ...r, _kind: 'cooking' };
   }
   return idIndex[id] || null;
 }
@@ -277,18 +374,21 @@ export async function getItemById(id) {
 // "what recipes produce X?" on a profile page.
 async function ensureRecipeIndexes() {
   if (recipesByInput && recipesByOutput) return;
-  const [refinery, products] = await Promise.all([
+  const [refinery, nutrient, products] = await Promise.all([
     ensure('refinery'),
+    ensure('nutrient'),
     ensure('products'),
   ]);
   recipesByInput = {};
   recipesByOutput = {};
-  for (const r of refinery) {
-    for (const inp of r.Inputs || []) {
-      (recipesByInput[inp.Id] ||= []).push({ type: 'refiner', recipe: r });
-    }
-    if (r.Output?.Id) {
-      (recipesByOutput[r.Output.Id] ||= []).push({ type: 'refiner', recipe: r });
+  for (const [recipes, type] of [[refinery, 'refiner'], [nutrient, 'cooking']]) {
+    for (const r of recipes) {
+      for (const inp of r.Inputs || []) {
+        (recipesByInput[inp.Id] ||= []).push({ type, recipe: r });
+      }
+      if (r.Output?.Id) {
+        (recipesByOutput[r.Output.Id] ||= []).push({ type, recipe: r });
+      }
     }
   }
   for (const p of products) {
