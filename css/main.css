@@ -9,6 +9,7 @@
   --accent-dim: #8a6e1c;
   --accent-soft: rgba(255, 204, 51, .12);
   --accent-grad: linear-gradient(135deg, #ffd85c 0%, #ffb020 100%);
+  --accent-text: #1a1a1a; /* text/icon color that sits on an accent-filled surface */
   --danger: #ff5a7a;
   --ok: #5bd89a;
   --tab-h: 64px;
@@ -75,6 +76,63 @@
   --bar-bg-2: rgba(238, 241, 247, .85);
   --shadow: 0 2px 8px rgba(60, 70, 90, .12);
   --shadow-lg: 0 8px 24px rgba(60, 70, 90, .18);
+}
+[data-theme="paper"] {
+  --bg: #f5efe3;
+  --bg-elev: #fffdf8;
+  --bg-elev-2: #efe7d6;
+  --border: #ddd2bd;
+  --text: #2a2318;
+  --text-dim: #7a6f59;
+  --accent: #b3671d;
+  --accent-dim: #d8a86a;
+  --accent-soft: rgba(179, 103, 29, .12);
+  --accent-grad: linear-gradient(135deg, #e0913c 0%, #b3671d 100%);
+  --accent-text: #ffffff;
+  --danger: #c23b46;
+  --ok: #3f8f52;
+  --bar-bg: rgba(255, 253, 248, .9);
+  --bar-bg-2: rgba(245, 239, 227, .85);
+  --shadow: 0 2px 8px rgba(90, 75, 50, .12);
+  --shadow-lg: 0 8px 24px rgba(90, 75, 50, .18);
+}
+[data-theme="frost"] {
+  --bg: #eef3fa;
+  --bg-elev: #ffffff;
+  --bg-elev-2: #e2eaf5;
+  --border: #cddaeb;
+  --text: #16202e;
+  --text-dim: #566579;
+  --accent: #2f6fed;
+  --accent-dim: #9bbcf5;
+  --accent-soft: rgba(47, 111, 237, .12);
+  --accent-grad: linear-gradient(135deg, #4a86ff 0%, #2f6fed 100%);
+  --accent-text: #ffffff;
+  --danger: #d23c5b;
+  --ok: #1f9d63;
+  --bar-bg: rgba(255, 255, 255, .9);
+  --bar-bg-2: rgba(238, 243, 250, .85);
+  --shadow: 0 2px 8px rgba(40, 60, 90, .12);
+  --shadow-lg: 0 8px 24px rgba(40, 60, 90, .18);
+}
+[data-theme="sage"] {
+  --bg: #eef4ec;
+  --bg-elev: #ffffff;
+  --bg-elev-2: #e2ede0;
+  --border: #cddccb;
+  --text: #18271a;
+  --text-dim: #5a6d58;
+  --accent: #2f9e57;
+  --accent-dim: #9ed3b0;
+  --accent-soft: rgba(47, 158, 87, .12);
+  --accent-grad: linear-gradient(135deg, #46b06d 0%, #2f9e57 100%);
+  --accent-text: #ffffff;
+  --danger: #d23c5b;
+  --ok: #1f9d63;
+  --bar-bg: rgba(255, 255, 255, .9);
+  --bar-bg-2: rgba(238, 244, 236, .85);
+  --shadow: 0 2px 8px rgba(50, 80, 55, .12);
+  --shadow-lg: 0 8px 24px rgba(50, 80, 55, .18);
 }
 
 * { box-sizing: border-box; }
@@ -231,7 +289,7 @@ main > .searchbar:first-child { margin-top: -12px; }
   transition: color .12s, border-color .12s, background .12s;
 }
 .type-chip.active {
-  color: #1a1a1a;
+  color: var(--accent-text);
   font-weight: 600;
   background: var(--accent-grad);
   border-color: transparent;
@@ -633,7 +691,7 @@ a.recipe-line { text-decoration: none; color: inherit; }
   width: 100%;
   padding: 12px;
   background: var(--accent-grad);
-  color: #1a1a1a;
+  color: var(--accent-text);
   border-radius: var(--radius);
   font-weight: 600;
   font-size: 14px;

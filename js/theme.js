@@ -10,6 +10,9 @@ export const THEMES = [
   { id: 'nebula', label: 'Nebula',        color: '#0e0a1a' },
   { id: 'atlas',  label: 'Atlas Red',     color: '#140a0c' },
   { id: 'light',  label: 'Daylight',      color: '#eef1f7' },
+  { id: 'paper',  label: 'Paper',         color: '#f5efe3' },
+  { id: 'frost',  label: 'Frost',         color: '#eef3fa' },
+  { id: 'sage',   label: 'Sage',          color: '#eef4ec' },
 ];
 
 const KEY = 'nms:theme';
