@@ -9,6 +9,7 @@ import { renderSource }    from './views/source.js';
 import { renderHome }       from './views/home.js';
 import { renderCalculator } from './views/calculator.js';
 import { renderMore }       from './views/more.js';
+import { renderSaveImport } from './views/save-import.js';
 import { initTheme }       from './theme.js';
 
 initTheme();
@@ -30,12 +31,13 @@ const TABS = {
   recipes:  { label: 'Recipes',    render: renderRecipes },
   updates:  { label: 'Updates',    render: renderUpdates },
   settings: { label: 'Settings',   render: renderSettings },
+  save:     { label: 'Save import', render: renderSaveImport },
 };
 
 // Which bottom-bar tab is highlighted for a given route name.
 const ROUTE_TAB = {
   home: 'home', browse: 'browse', calc: 'calc', projects: 'projects', more: 'more',
-  recipes: 'browse', updates: 'more', settings: 'more',
+  recipes: 'browse', updates: 'more', settings: 'more', save: 'more',
 };
 
 let currentRoute = { kind: 'tab', name: 'home', params: {} };
